@@ -17,7 +17,7 @@
 #GL = 0
 
 ## by default we compile python bindings using the Ubuntu pybind package, but can be disabled
-#PYBIND = 0
+PYBIND = 0
 
 ## we use the following numerics/optimization libs by default, but can be disabled
 #EIGEN = 0
@@ -33,7 +33,7 @@ BULLET = 0
 
 ## below are more libs, which we could use, but are disabled by default
 OPENCV = 0
-#GRAPHVIZ = 0
+GRAPHVIZ = 0
 GTK = 0
 G4 = 0
 #PNG = 0
@@ -41,4 +41,3 @@ PCL = 0
 ODE = 0
 ROS = 0
 ROS_VERSION = melodic
-
