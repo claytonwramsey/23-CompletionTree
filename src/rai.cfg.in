@@ -40,16 +40,22 @@ LGP/level_cP: 1.
 
 LGP/evalLimit: 120
 
-problem: /home/clayton/projects/pddlstream-benchmarks/23-CompletionTree/lgp-benchmarks/puzzles/2blocks.lgp
+# @REPO_ROOT@ is substituted with this checkout's absolute path by
+# ../generate-rai-cfg.sh (run automatically by `make` in this directory, or
+# run it directly after moving/re-cloning the checkout). Must be absolute:
+# rai's Graph config parser mis-parses list entries starting with `../`
+# (silently fails to populate `problems`, then HALTs claiming the parameter
+# was never set at all) so plain relative paths don't work here.
+problem: @REPO_ROOT@/lgp-benchmarks/puzzles/2blocks.lgp
 
 problems: [
-/home/clayton/projects/pddlstream-benchmarks/23-CompletionTree/lgp-benchmarks/puzzles/2blocks.lgp
-/home/clayton/projects/pddlstream-benchmarks/23-CompletionTree/lgp-benchmarks/puzzles/around2.lgp
-/home/clayton/projects/pddlstream-benchmarks/23-CompletionTree/lgp-benchmarks/puzzles/around.lgp
-/home/clayton/projects/pddlstream-benchmarks/23-CompletionTree/lgp-benchmarks/puzzles/cross-box.lgp
-/home/clayton/projects/pddlstream-benchmarks/23-CompletionTree/lgp-benchmarks/puzzles/quim.lgp
-/home/clayton/projects/pddlstream-benchmarks/23-CompletionTree/lgp-benchmarks/puzzles/sofa.lgp
-/home/clayton/projects/pddlstream-benchmarks/23-CompletionTree/lgp-benchmarks/robot-pnp/move_table_bend.lgp
+@REPO_ROOT@/lgp-benchmarks/puzzles/2blocks.lgp
+@REPO_ROOT@/lgp-benchmarks/puzzles/around2.lgp
+@REPO_ROOT@/lgp-benchmarks/puzzles/around.lgp
+@REPO_ROOT@/lgp-benchmarks/puzzles/cross-box.lgp
+@REPO_ROOT@/lgp-benchmarks/puzzles/quim.lgp
+@REPO_ROOT@/lgp-benchmarks/puzzles/sofa.lgp
+@REPO_ROOT@/lgp-benchmarks/robot-pnp/move_table_bend.lgp
 ]
 # pr2-onTray.lgp excluded: its .g file hardcodes PR2 mesh paths from an old
 # rai-robotModels layout (ply files under pr2/meshes/base_v0/) that no longer

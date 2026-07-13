@@ -4,8 +4,16 @@ OPTIM = fast_debug
 
 DEPEND = Core Algo Search
 
-HOP_BENCH_CXX_DIR = /home/clayton/projects/pddlstream-benchmarks/hopscotch/crates/hop-bench-cxx
-HOP_BENCH_CXX_LIB = /home/clayton/projects/pddlstream-benchmarks/hopscotch/target/release
+# Defaults assume the standard sibling-checkout layout (hopscotch/ and
+# 23-CompletionTree/ both directly under the same parent directory, as in
+# hopscotch/examples/pddlstream/README.md); override on the command line
+# (e.g. `make HOP_BENCH_CXX_DIR=/path/to/hopscotch/crates/hop-bench-cxx
+# HOP_BENCH_CXX_LIB=/path/to/hopscotch/target/release all_bench`) if your
+# checkout doesn't follow that layout. $(abspath ...) resolves relative to
+# the directory `make` is invoked from (this one), so this works for any
+# user/home directory without editing the Makefile.
+HOP_BENCH_CXX_DIR ?= $(abspath ../../hopscotch/crates/hop-bench-cxx)
+HOP_BENCH_CXX_LIB ?= $(abspath ../../hopscotch/target/release)
 
 CXXFLAGS += -I$(HOP_BENCH_CXX_DIR)
 LIBS += -L$(HOP_BENCH_CXX_LIB) -lhop_bench_cxx -Wl,-rpath,$(HOP_BENCH_CXX_LIB) -lpthread -ldl

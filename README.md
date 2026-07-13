@@ -104,11 +104,16 @@ cd rai && make src && cd ..
 cd src && make   # -> src/x.exe, the paper's own experiments
 ```
 
-**6. Run the paper's own experiments.** `src/rai.cfg`'s `problem`/`problems` entries are
-hardcoded absolute paths (originally to the paper author's own machine) -- point them at your
-own checkout first:
+**6. Run the paper's own experiments.** `src/rai.cfg`'s `problem`/`problems` entries need to be
+absolute paths into this checkout's own `lgp-benchmarks/` (rai's config-file parser mis-parses
+list entries starting with `../`, so plain relative paths don't work here). Rather than hardcode
+any one machine's path, `rai.cfg` is generated from the checked-in `src/rai.cfg.in` template by
+`./generate-rai-cfg.sh`, which substitutes this checkout's own absolute path for the
+`@REPO_ROOT@` placeholder -- `cd src && make` already runs this for you (it's a build
+prerequisite), but you can also run it directly, including to re-point `rai.cfg` after moving or
+re-cloning the checkout:
 ```bash
-sed -i "s|/home/mtoussai/git|$(pwd)/..|g" src/rai.cfg   # only if rai.cfg still has the original paths
+./generate-rai-cfg.sh   # only needed directly if you're not about to `make` in src/ anyway
 cd src && ./x.exe -LGP/verbose 0   # runs every problem in rai.cfg's `problems` list, K=10 restarts each
 ```
 One of the default `problems` list entries, `robot-pnp/pr2-onTray.lgp`, references PR2 mesh

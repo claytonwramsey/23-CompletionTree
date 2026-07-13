@@ -1,5 +1,9 @@
 /config.mk
 
+# generated from src/rai.cfg.in by generate-rai-cfg.sh -- contains this
+# checkout's own absolute path, so it shouldn't be committed
+/src/rai.cfg
+
 unity.cxx
 
 %% compile temporaries
