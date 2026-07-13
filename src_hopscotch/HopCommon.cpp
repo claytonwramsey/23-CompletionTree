@@ -25,28 +25,26 @@ int MotionPlanState::step(const RobotVtable &rvArg, CConfig q_start, CConfig q_e
     int samplesPerResume = hopInfo().motionSamplesPerResume;
     int r = rv->motion_plan_resume(handle, (size_t)samplesPerResume, out_buf, out_cap, out_len);
     if (r == 1) {
-        free();
+        reset();
         return 1;
     }
     if (r == -1) {
-        free();
+        reset();
         return -1;
     }
     cumulativeSamples += samplesPerResume;
     if (cumulativeSamples >= hopInfo().motionMaxTotalSamples) {
-        free();
+        reset();
         return -1;
     }
     return 0;
 }
 
-void MotionPlanState::free() {
+void MotionPlanState::reset() {
     if (handle) {
         rv->motion_plan_free(handle);
         handle = nullptr;
     }
 }
-
-MotionPlanState::~MotionPlanState() { free(); }
 
 } // namespace hopct

@@ -9,10 +9,11 @@
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
+#include <string>
 
 using namespace hopct;
 
-static void dumpSolution(const char *path, uint64_t seed, const MobileScenario *scenario,
+static void dumpSolution(const std::string &path, uint64_t seed, const MobileScenario &scenario,
     const std::vector<Action> &plan, HopMobileNode *solutionNode) {
     std::vector<HopMobileNode *> chain;
     for (HopMobileNode *n = solutionNode; n->action_index >= 0;
@@ -26,34 +27,34 @@ static void dumpSolution(const char *path, uint64_t seed, const MobileScenario *
     os << "  \"problem\": \"mobile\",\n";
     os << "  \"robot\": \"pr2\",\n";
     os << "  \"seed\": " << seed << ",\n";
-    size_t n = hopcxx_mobile_num_objects(scenario);
+    size_t n = hopcxx_mobile_num_objects(&scenario);
     os << "  \"objects\": [";
     for (size_t i = 0; i < n; i++) {
         if (i) {
             os << ", ";
         }
-        os << "{\"id\": " << hopcxx_mobile_object_id(scenario, i) << ", \"start_pose\": ";
-        writePose(os, hopcxx_mobile_object_pose(scenario, i));
+        os << "{\"id\": " << hopcxx_mobile_object_id(&scenario, i) << ", \"start_pose\": ";
+        writePose(os, hopcxx_mobile_object_pose(&scenario, i));
         os << "}";
     }
     os << "],\n";
-    size_t ns = hopcxx_mobile_num_surfaces(scenario);
+    size_t ns = hopcxx_mobile_num_surfaces(&scenario);
     os << "  \"surfaces\": [";
     for (size_t i = 0; i < ns; i++) {
         if (i) {
             os << ", ";
         }
-        CTable t = hopcxx_mobile_surface(scenario, i);
+        CTable t = hopcxx_mobile_surface(&scenario, i);
         os << "{\"height\": " << t.height << ", \"aabb\": [" << t.x0 << "," << t.y0 << "," << t.x1
            << "," << t.y1 << "]}";
     }
     os << "],\n";
-    os << "  \"block_r\": " << hopcxx_mobile_block_r(scenario) << ",\n";
+    os << "  \"block_r\": " << hopcxx_mobile_block_r(&scenario) << ",\n";
     os << "  \"q_start\": ";
-    writeConfig(os, hopcxx_mobile_robot_q_start_arm(scenario));
+    writeConfig(os, hopcxx_mobile_robot_q_start_arm(&scenario));
     os << ",\n";
     os << "  \"base_start_pose\": ";
-    writePose(os, hopcxx_mobile_base_start_pose(scenario));
+    writePose(os, hopcxx_mobile_base_start_pose(&scenario));
     os << ",\n";
     os << "  \"actions\": [\n";
     for (size_t i = 0; i < chain.size(); i++) {
@@ -92,10 +93,10 @@ int main(int argc, char **argv) {
     int stepCap = rai::getParameter<int>("stepCap", 200000000);
     int nodeCap = rai::getParameter<int>("nodeCap", 4000000);
 
-    MobileScenario *scenario = hopcxx_make_mobile_scenario(seed);
-    std::vector<Action> plan = makeMobilePlan(scenario);
+    ScenarioPtr<MobileScenario> scenario(hopcxx_make_mobile_scenario(seed), hopcxx_mobile_free);
+    std::vector<Action> plan = makeMobilePlan(*scenario);
 
-    auto root = std::make_shared<HopMobileNode>(scenario, &plan);
+    auto root = std::make_shared<HopMobileNode>(*scenario, plan);
     rai::AStar astar(root, rai::AStar::astar);
     astar.verbose = 0;
 
@@ -106,12 +107,11 @@ int main(int argc, char **argv) {
         (unsigned long long)seed, result.solved ? 1 : 0, result.elapsed_s, result.steps,
         result.nodes, plan.size());
 
-    rai::String dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING(""));
-    if (result.solved && dumpPath.N) {
+    std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
+    if (result.solved && !dumpPath.empty()) {
         dumpSolution(
-            dumpPath.p, seed, scenario, plan, dynamic_cast<HopMobileNode *>(astar.solutions(0)));
+            dumpPath, seed, *scenario, plan, dynamic_cast<HopMobileNode *>(astar.solutions(0)));
     }
 
-    hopcxx_mobile_free(scenario);
     return 0;
 }

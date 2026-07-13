@@ -39,7 +39,7 @@ struct CoffeeAction {
 // actual object indices (cup0/cream_cup/sugar_cup/spoon0, looked up by
 // (kind, index) since array position isn't guaranteed -- see
 // CoffeeScenario's docstring in hop-bench-cxx/src/lib.rs).
-std::vector<CoffeeAction> makeCoffeePlan(const CoffeeScenario *scenario);
+std::vector<CoffeeAction> makeCoffeePlan(const CoffeeScenario &scenario);
 
 // Per-cup logical state, mirroring hop_problem::coffee::CupState -- either
 // Unmixed with some subset of {coffee, sugar, cream}, or Mixed.
@@ -48,8 +48,8 @@ struct CupLogic {
 };
 
 struct HopCoffeeNode : rai::ComputeNode {
-    const CoffeeScenario *scenario; // borrowed; owned by the root/driver
-    const std::vector<CoffeeAction> *plan; // borrowed
+    const CoffeeScenario &scenario; // borrowed; owned by the root/driver
+    const std::vector<CoffeeAction> &plan; // borrowed
     int action_index; // -1 at the root
 
     CConfig q_arm;
@@ -76,8 +76,8 @@ struct HopCoffeeNode : rai::ComputeNode {
     std::vector<CConfig> trajectory;
 
     HopCoffeeNode(
-        const CoffeeScenario *scenario, const std::vector<CoffeeAction> *plan, RobotTag robot);
-    HopCoffeeNode(HopCoffeeNode *parent, int childIndex);
+        const CoffeeScenario &scenario, const std::vector<CoffeeAction> &plan, RobotTag robot);
+    HopCoffeeNode(HopCoffeeNode &parent, int childIndex);
 
     RobotTag robot;
 

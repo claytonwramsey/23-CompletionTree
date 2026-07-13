@@ -28,11 +28,11 @@ namespace hopct {
 // Builds the fixed-order pick/place plan for a PickPlaceScenario: a single
 // Pick(target) for `cabinet` (target_block set), or Pick/Place pairs for
 // every object in scenario order for `packing` (goal_surface set).
-std::vector<Action> makePickPlacePlan(const PickPlaceScenario *scenario);
+std::vector<Action> makePickPlacePlan(const PickPlaceScenario &scenario);
 
 struct HopPickPlaceNode : rai::ComputeNode {
-    const PickPlaceScenario *scenario; // borrowed; owned by the root/driver
-    const std::vector<Action> *plan; // borrowed
+    const PickPlaceScenario &scenario; // borrowed; owned by the root/driver
+    const std::vector<Action> &plan; // borrowed
     RobotTag robot;
     int action_index; // -1 at the root (no action attempted yet)
 
@@ -63,9 +63,9 @@ struct HopPickPlaceNode : rai::ComputeNode {
 
     // Root constructor.
     HopPickPlaceNode(
-        const PickPlaceScenario *scenario, const std::vector<Action> *plan, RobotTag robot);
-    // Child constructor: attempts `plan->at(parent->action_index + 1)` once.
-    HopPickPlaceNode(HopPickPlaceNode *parent, int childIndex);
+        const PickPlaceScenario &scenario, const std::vector<Action> &plan, RobotTag robot);
+    // Child constructor: attempts `plan.at(parent.action_index + 1)` once.
+    HopPickPlaceNode(HopPickPlaceNode &parent, int childIndex);
 
     virtual void untimedCompute();
     virtual int getNumDecisions() { return isComplete && isFeasible && !isTerminal ? -1 : 0; }

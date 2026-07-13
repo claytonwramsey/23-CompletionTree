@@ -1,19 +1,20 @@
 #include "HopStackingNode.h"
 #include "hop_pose.h"
+#include <algorithm>
 #include <cstdlib>
 #include <random>
 
 namespace hopct {
 
-std::vector<Action> makeStackingPlan(const StackingScenario *scenario) {
-    size_t n = hopcxx_stacking_num_objects(scenario);
+std::vector<Action> makeStackingPlan(const StackingScenario &scenario) {
+    size_t n = hopcxx_stacking_num_objects(&scenario);
     std::vector<Action> plan;
     for (size_t k = 0; k < n; k++) {
-        uint64_t goalId = hopcxx_stacking_goal_order(scenario, k);
+        uint64_t goalId = hopcxx_stacking_goal_order(&scenario, k);
         size_t idx = n; // object_ids aren't necessarily 0..n-1 in order (HashMap
                         // iteration order on the Rust side) -- look it up.
         for (size_t i = 0; i < n; i++) {
-            if (hopcxx_stacking_object_id(scenario, i) == goalId) {
+            if (hopcxx_stacking_object_id(&scenario, i) == goalId) {
                 idx = i;
                 break;
             }
@@ -25,32 +26,32 @@ std::vector<Action> makeStackingPlan(const StackingScenario *scenario) {
     return plan;
 }
 
-static Environment *buildAttemptEnv(
-    const StackingScenario *scenario, const std::vector<CPose> &poses, size_t movingIndex) {
-    Environment *env = hopcxx_env_clone(hopcxx_stacking_env(scenario));
-    float block_r = hopcxx_stacking_block_r(scenario);
+static EnvPtr buildAttemptEnv(
+    const StackingScenario &scenario, const std::vector<CPose> &poses, size_t movingIndex) {
+    EnvPtr env = wrapEnv(hopcxx_env_clone(hopcxx_stacking_env(&scenario)));
+    float block_r = hopcxx_stacking_block_r(&scenario);
     for (size_t i = 0; i < poses.size(); i++) {
         if (i == movingIndex) {
             continue;
         }
-        hopcxx_env_add_ball(env, poses[i].x, poses[i].y, poses[i].z, block_r);
+        hopcxx_env_add_ball(env.get(), poses[i].x, poses[i].y, poses[i].z, block_r);
     }
     return env;
 }
 
 HopStackingNode::HopStackingNode(
-    const StackingScenario *scenario, const std::vector<Action> *plan, RobotTag robot)
+    const StackingScenario &scenario, const std::vector<Action> &plan, RobotTag robot)
     : ComputeNode(nullptr)
     , scenario(scenario)
     , plan(plan)
     , robot(robot)
     , action_index(-1) {
-    q_arm = hopcxx_stacking_robot_q_start(scenario);
+    q_arm = hopcxx_stacking_robot_q_start(&scenario);
     poses = std::make_shared<std::vector<CPose>>();
-    size_t n = hopcxx_stacking_num_objects(scenario);
+    size_t n = hopcxx_stacking_num_objects(&scenario);
     poses->reserve(n);
     for (size_t i = 0; i < n; i++) {
-        poses->push_back(hopcxx_stacking_object_pose(scenario, i));
+        poses->push_back(hopcxx_stacking_object_pose(&scenario, i));
     }
     isComplete = true;
     isFeasible = true;
@@ -58,16 +59,16 @@ HopStackingNode::HopStackingNode(
     name = "root";
 }
 
-HopStackingNode::HopStackingNode(HopStackingNode *parent, int childIndex)
-    : ComputeNode(parent)
-    , scenario(parent->scenario)
-    , plan(parent->plan)
-    , robot(parent->robot)
-    , action_index(parent->action_index + 1)
-    , q_arm(parent->q_arm)
-    , held_object(parent->held_object)
-    , grasp_offset(parent->grasp_offset)
-    , poses(parent->poses) {
+HopStackingNode::HopStackingNode(HopStackingNode &parent, int childIndex)
+    : ComputeNode(&parent)
+    , scenario(parent.scenario)
+    , plan(parent.plan)
+    , robot(parent.robot)
+    , action_index(parent.action_index + 1)
+    , q_arm(parent.q_arm)
+    , held_object(parent.held_object)
+    , grasp_offset(parent.grasp_offset)
+    , poses(parent.poses) {
     name << "a" << action_index << "#" << childIndex;
 }
 
@@ -78,16 +79,16 @@ double HopStackingNode::branchingPenalty_child(int i) {
 }
 
 std::shared_ptr<rai::ComputeNode> HopStackingNode::createNewChild(int i) {
-    return std::make_shared<HopStackingNode>(this, i);
+    return std::make_shared<HopStackingNode>(*this, i);
 }
 
 void HopStackingNode::untimedCompute() {
     CHECK_GE(action_index, 0, "root should never be (re-)computed");
-    const Action &act = plan->at(action_index);
+    const Action &act = plan.at(action_index);
     const RobotVtable &rv = robot_vtable(robot);
 
     if (!motionStarted) {
-        Environment *env = buildAttemptEnv(scenario, *poses, act.object_index);
+        EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index);
         CConfig qTarget;
         bool ok;
         if (act.type == ActionType::Pick) {
@@ -96,7 +97,7 @@ void HopStackingNode::untimedCompute() {
             CPose eeTarget = pose_mul(objPose, g);
             ok = rv.ik(eeTarget, &qTarget);
             if (ok) {
-                ok = rv.validate(qTarget, env);
+                ok = rv.validate(qTarget, env.get());
             }
             if (ok) {
                 nextHeldObject = (int64_t)act.object_index;
@@ -107,7 +108,7 @@ void HopStackingNode::untimedCompute() {
         } else {
             CHECK_EQ(held_object, (int64_t)act.object_index,
                 "place must follow pick of the same object");
-            float block_r = hopcxx_stacking_block_r(scenario);
+            float block_r = hopcxx_stacking_block_r(&scenario);
 
             // Tower position of this Place = (action_index - 1) / 2 (each tower
             // slot is a Pick then a Place); 0 -> free table pose, otherwise stack
@@ -116,12 +117,12 @@ void HopStackingNode::untimedCompute() {
             int towerPos = (action_index - 1) / 2;
             CPose target;
             if (towerPos == 0) {
-                target = rv.sample_table_pose(hopcxx_stacking_table(scenario));
+                target = rv.sample_table_pose(hopcxx_stacking_table(&scenario));
             } else {
-                uint64_t belowId = hopcxx_stacking_goal_order(scenario, towerPos - 1);
+                uint64_t belowId = hopcxx_stacking_goal_order(&scenario, towerPos - 1);
                 size_t belowIdx = poses->size();
-                for (size_t i = 0; i < hopcxx_stacking_num_objects(scenario); i++) {
-                    if (hopcxx_stacking_object_id(scenario, i) == belowId) {
+                for (size_t i = 0; i < hopcxx_stacking_num_objects(&scenario); i++) {
+                    if (hopcxx_stacking_object_id(&scenario, i) == belowId) {
                         belowIdx = i;
                         break;
                     }
@@ -137,7 +138,7 @@ void HopStackingNode::untimedCompute() {
             CPose heldRel = pose_inverse(grasp_offset);
             ok = rv.ik(eeTarget, &qTarget);
             if (ok) {
-                ok = rv.validate_attached(qTarget, env, block_r, heldRel);
+                ok = rv.validate_attached(qTarget, env.get(), block_r, heldRel);
             }
             if (ok) {
                 nextHeldObject = -1;
@@ -147,7 +148,6 @@ void HopStackingNode::untimedCompute() {
                 pendingHeldRel = heldRel;
             }
         }
-        hopcxx_env_free(env);
         if (!ok) {
             isFeasible = false;
             isComplete = true;
@@ -158,14 +158,13 @@ void HopStackingNode::untimedCompute() {
         motionStarted = true;
     }
 
-    Environment *env = buildAttemptEnv(scenario, *poses, act.object_index);
+    EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index);
     int maxWp = hopInfo().maxTrajWaypoints;
     std::vector<float> buf(maxWp * HOPCXX_MAX_DIM);
     size_t len = 0;
-    float block_r = hopcxx_stacking_block_r(scenario);
-    int r = motionState.step(rv, q_arm, pendingQEnd, env, block_r, pendingHasHeld, pendingHeldRel,
-        buf.data(), maxWp, &len);
-    hopcxx_env_free(env);
+    float block_r = hopcxx_stacking_block_r(&scenario);
+    int r = motionState.step(rv, q_arm, pendingQEnd, env.get(), block_r, pendingHasHeld,
+        pendingHeldRel, buf.data(), maxWp, &len);
 
     if (r == 0) {
         return;
@@ -179,9 +178,7 @@ void HopStackingNode::untimedCompute() {
     for (size_t w = 0; w < len; w++) {
         CConfig c { };
         c.dim = nextQArm.dim;
-        for (int d = 0; d < c.dim; d++) {
-            c.q[d] = buf[w * c.dim + d];
-        }
+        std::copy_n(buf.begin() + w * c.dim, c.dim, c.q);
         trajectory.push_back(c);
     }
     q_arm = nextQArm;
@@ -196,7 +193,7 @@ void HopStackingNode::untimedCompute() {
     isFeasible = true;
     isComplete = true;
     l = 1.;
-    if (action_index + 1 == (int)plan->size()) {
+    if (action_index + 1 == (int)plan.size()) {
         isTerminal = true;
     }
 }

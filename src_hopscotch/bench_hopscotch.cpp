@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <string>
 
 using namespace hopct;
 
@@ -32,9 +33,9 @@ static RobotTag parseRobot(const char *s) {
 // file for offline visualization (see dump_solution's Python consumer,
 // common/replay_completiontree.py) -- not a general-purpose serializer, just
 // enough structure to replay the trajectory + which object moved where.
-static void dumpSolution(const char *path, const rai::String &problem, const rai::String &robotName,
-    uint64_t seed, const PickPlaceScenario *scenario, const std::vector<Action> &plan,
-    HopPickPlaceNode *solutionNode) {
+static void dumpSolution(const std::string &path, const std::string &problem,
+    const std::string &robotName, uint64_t seed, const PickPlaceScenario &scenario,
+    const std::vector<Action> &plan, HopPickPlaceNode *solutionNode) {
     std::vector<HopPickPlaceNode *> chain;
     for (HopPickPlaceNode *n = solutionNode; n->action_index >= 0;
         n = dynamic_cast<HopPickPlaceNode *>(n->parent)) {
@@ -44,34 +45,34 @@ static void dumpSolution(const char *path, const rai::String &problem, const rai
 
     std::ofstream os(path);
     os << "{\n";
-    os << "  \"problem\": \"" << problem.p << "\",\n";
-    os << "  \"robot\": \"" << robotName.p << "\",\n";
+    os << "  \"problem\": \"" << problem << "\",\n";
+    os << "  \"robot\": \"" << robotName << "\",\n";
     os << "  \"seed\": " << seed << ",\n";
-    size_t n = hopcxx_pickplace_num_objects(scenario);
+    size_t n = hopcxx_pickplace_num_objects(&scenario);
     os << "  \"objects\": [";
     for (size_t i = 0; i < n; i++) {
         if (i) {
             os << ", ";
         }
-        os << "{\"id\": " << hopcxx_pickplace_object_id(scenario, i) << ", \"start_pose\": ";
-        writePose(os, hopcxx_pickplace_object_pose(scenario, i));
+        os << "{\"id\": " << hopcxx_pickplace_object_id(&scenario, i) << ", \"start_pose\": ";
+        writePose(os, hopcxx_pickplace_object_pose(&scenario, i));
         os << "}";
     }
     os << "],\n";
-    size_t ns = hopcxx_pickplace_num_surfaces(scenario);
+    size_t ns = hopcxx_pickplace_num_surfaces(&scenario);
     os << "  \"surfaces\": [";
     for (size_t i = 0; i < ns; i++) {
         if (i) {
             os << ", ";
         }
-        CTable t = hopcxx_pickplace_surface(scenario, i);
+        CTable t = hopcxx_pickplace_surface(&scenario, i);
         os << "{\"height\": " << t.height << ", \"aabb\": [" << t.x0 << "," << t.y0 << "," << t.x1
            << "," << t.y1 << "]}";
     }
     os << "],\n";
-    os << "  \"block_r\": " << hopcxx_pickplace_block_r(scenario) << ",\n";
+    os << "  \"block_r\": " << hopcxx_pickplace_block_r(&scenario) << ",\n";
     os << "  \"q_start\": ";
-    writeConfig(os, hopcxx_pickplace_robot_q_start(scenario));
+    writeConfig(os, hopcxx_pickplace_robot_q_start(&scenario));
     os << ",\n";
     os << "  \"actions\": [\n";
     for (size_t i = 0; i < chain.size(); i++) {
@@ -103,8 +104,11 @@ static void dumpSolution(const char *path, const rai::String &problem, const rai
 int main(int argc, char **argv) {
     rai::initCmdLine(argc, argv);
 
-    rai::String problem = rai::getParameter<rai::String>("problem", STRING("cabinet"));
-    rai::String robotName = rai::getParameter<rai::String>("robot", STRING("panda"));
+    // rai::getParameter<rai::String> is the only way to read a string-typed
+    // rai.cfg/CLI parameter -- convert to std::string immediately so the rest
+    // of this file (and dumpSolution) doesn't have to touch rai::String.
+    std::string problem = rai::getParameter<rai::String>("problem", STRING("cabinet")).p;
+    std::string robotName = rai::getParameter<rai::String>("robot", STRING("panda")).p;
     uint64_t seed = (uint64_t)rai::getParameter<double>("seed", 0.);
     double timeout_s = rai::getParameter<double>("timeout", 30.);
     // A step cap is still useful as a hard backstop, but the intended gate is
@@ -120,32 +124,33 @@ int main(int argc, char **argv) {
     // solve in the allotted search").
     int nodeCap = rai::getParameter<int>("nodeCap", 4000000);
 
-    RobotTag robot = parseRobot(robotName.p);
+    RobotTag robot = parseRobot(robotName.c_str());
 
-    PickPlaceScenario *scenario = nullptr;
+    PickPlaceScenario *rawScenario = nullptr;
     if (problem == "cabinet") {
         if (robot == RobotTag::Panda) {
-            scenario = hopcxx_make_cabinet_scenario_panda(seed);
+            rawScenario = hopcxx_make_cabinet_scenario_panda(seed);
         } else if (robot == RobotTag::Ur5) {
-            scenario = hopcxx_make_cabinet_scenario_ur5(seed);
+            rawScenario = hopcxx_make_cabinet_scenario_ur5(seed);
         } else {
-            scenario = hopcxx_make_cabinet_scenario_pr2(seed);
+            rawScenario = hopcxx_make_cabinet_scenario_pr2(seed);
         }
     } else if (problem == "packing") {
         if (robot == RobotTag::Panda) {
-            scenario = hopcxx_make_packing_scenario_panda(seed);
+            rawScenario = hopcxx_make_packing_scenario_panda(seed);
         } else if (robot == RobotTag::Ur5) {
-            scenario = hopcxx_make_packing_scenario_ur5(seed);
+            rawScenario = hopcxx_make_packing_scenario_ur5(seed);
         } else {
-            scenario = hopcxx_make_packing_scenario_pr2(seed);
+            rawScenario = hopcxx_make_packing_scenario_pr2(seed);
         }
     } else {
         HALT("unknown problem '" << problem << "' (this driver supports cabinet/packing)");
     }
+    ScenarioPtr<PickPlaceScenario> scenario(rawScenario, hopcxx_pickplace_free);
 
-    std::vector<Action> plan = makePickPlacePlan(scenario);
+    std::vector<Action> plan = makePickPlacePlan(*scenario);
 
-    auto root = std::make_shared<HopPickPlaceNode>(scenario, &plan, robot);
+    auto root = std::make_shared<HopPickPlaceNode>(*scenario, plan, robot);
     rai::AStar astar(root, rai::AStar::astar);
     astar.verbose = 0;
 
@@ -153,15 +158,14 @@ int main(int argc, char **argv) {
 
     printf(
         "problem=%s robot=%s seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u plan_len=%zu\n",
-        problem.p, robotName.p, (unsigned long long)seed, result.solved ? 1 : 0, result.elapsed_s,
-        result.steps, result.nodes, plan.size());
+        problem.c_str(), robotName.c_str(), (unsigned long long)seed, result.solved ? 1 : 0,
+        result.elapsed_s, result.steps, result.nodes, plan.size());
 
-    rai::String dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING(""));
-    if (result.solved && dumpPath.N) {
-        dumpSolution(dumpPath.p, problem, robotName, seed, scenario, plan,
+    std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
+    if (result.solved && !dumpPath.empty()) {
+        dumpSolution(dumpPath, problem, robotName, seed, *scenario, plan,
             dynamic_cast<HopPickPlaceNode *>(astar.solutions(0)));
     }
 
-    hopcxx_pickplace_free(scenario);
     return 0;
 }

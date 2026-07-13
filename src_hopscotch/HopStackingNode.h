@@ -18,11 +18,11 @@
 namespace hopct {
 
 // Pick/Place pairs for every object in `goal_order` (bottom-to-top).
-std::vector<Action> makeStackingPlan(const StackingScenario *scenario);
+std::vector<Action> makeStackingPlan(const StackingScenario &scenario);
 
 struct HopStackingNode : rai::ComputeNode {
-    const StackingScenario *scenario; // borrowed; owned by the root/driver
-    const std::vector<Action> *plan; // borrowed
+    const StackingScenario &scenario; // borrowed; owned by the root/driver
+    const std::vector<Action> &plan; // borrowed
     RobotTag robot;
     int action_index; // -1 at the root
 
@@ -44,8 +44,8 @@ struct HopStackingNode : rai::ComputeNode {
     std::vector<CConfig> trajectory;
 
     HopStackingNode(
-        const StackingScenario *scenario, const std::vector<Action> *plan, RobotTag robot);
-    HopStackingNode(HopStackingNode *parent, int childIndex);
+        const StackingScenario &scenario, const std::vector<Action> &plan, RobotTag robot);
+    HopStackingNode(HopStackingNode &parent, int childIndex);
 
     virtual void untimedCompute();
     virtual int getNumDecisions() { return isComplete && isFeasible && !isTerminal ? -1 : 0; }

@@ -4,6 +4,7 @@
 #include "hop_bench_cxx.h"
 #include <Core/util.h>
 #include <Search/AStar.h>
+#include <chrono>
 #include <ostream>
 
 namespace hopct {
@@ -22,10 +23,13 @@ struct TrialResult {
 // frees a node -- same design as rai's own LGP search).
 inline TrialResult runSearch(rai::AStar &astar, double timeout_s, int stepCap, int nodeCap) {
     TrialResult r;
-    double t0 = rai::realTime();
+    // std::chrono::steady_clock instead of rai::realTime(): monotonic (immune
+    // to system-clock adjustments, unlike rai::realTime()'s system_clock
+    // basis), and this is exactly the elapsed-time-delta use case it's for.
+    auto t0 = std::chrono::steady_clock::now();
     while (true) {
         astar.step();
-        r.elapsed_s = rai::realTime() - t0;
+        r.elapsed_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         if (astar.solutions.N > 0) {
             r.solved = true;
             break;

@@ -4,8 +4,19 @@
 #include "hop_bench_cxx.h"
 #include "hop_robot_vtable.h"
 #include <Core/util.h>
+#include <memory>
 
 namespace hopct {
+
+// RAII for the opaque hopcxx_* handles (Environment, *Scenario): each has
+// exactly one paired hopcxx_*_free function, so a unique_ptr with that
+// function as its deleter frees it automatically at scope exit -- including
+// on early returns -- instead of relying on a matching manual free() call at
+// every exit point.
+template <typename T> using ScenarioPtr = std::unique_ptr<T, void (*)(T *)>;
+
+using EnvPtr = std::unique_ptr<Environment, void (*)(Environment *)>;
+inline EnvPtr wrapEnv(Environment *e) { return EnvPtr(e, hopcxx_env_free); }
 
 struct HopGlobalInfo {
     RAI_PARAM("Hop/", double, w0, 4.)
@@ -53,10 +64,30 @@ HopDiagStats &diagStats();
 // rationale (every unit of real planning effort should be its own
 // accounted-for search-tree node, the same principle as
 // `hopcxx_*_ik` being a single draw rather than an internal retry loop).
+// Owns a resumable motion-planning search handle (type-erased `void*` since
+// it's typed per-robot on the Rust side -- see hop_robot_vtable.h). Move-only,
+// like any other RAII handle owner: copying would double-free `handle`.
 struct MotionPlanState {
-    void *handle = nullptr;
-    const RobotVtable *rv = nullptr; // set on first `step()`, needed by `free`/~dtor
-    int cumulativeSamples = 0;
+    MotionPlanState() = default;
+    MotionPlanState(const MotionPlanState &) = delete;
+    MotionPlanState &operator=(const MotionPlanState &) = delete;
+    MotionPlanState(MotionPlanState &&other) noexcept
+        : handle(other.handle)
+        , rv(other.rv)
+        , cumulativeSamples(other.cumulativeSamples) {
+        other.handle = nullptr;
+    }
+    MotionPlanState &operator=(MotionPlanState &&other) noexcept {
+        if (this != &other) {
+            reset();
+            handle = other.handle;
+            rv = other.rv;
+            cumulativeSamples = other.cumulativeSamples;
+            other.handle = nullptr;
+        }
+        return *this;
+    }
+    ~MotionPlanState() { reset(); }
 
     // Returns 1 (solved -- trajectory written to out_buf/out_len, handle
     // freed), -1 (gave up -- either construction failed, the path exceeded
@@ -68,8 +99,12 @@ struct MotionPlanState {
         float block_r, bool has_held, CPose held_rel_pose, float *out_buf, size_t out_cap,
         size_t *out_len);
 
-    void free();
-    ~MotionPlanState();
+    void reset();
+
+private:
+    void *handle = nullptr;
+    const RobotVtable *rv = nullptr; // set on first `step()`, needed by `reset`/~dtor
+    int cumulativeSamples = 0;
 };
 
 } // namespace hopct

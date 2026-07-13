@@ -27,11 +27,11 @@ namespace hopct {
 
 // Pick/Place pairs for every object in scenario order, all targeting
 // `goal_surface` (mirrors makePickPlacePlan's `packing` case).
-std::vector<Action> makeMobilePlan(const MobileScenario *scenario);
+std::vector<Action> makeMobilePlan(const MobileScenario &scenario);
 
 struct HopMobileNode : rai::ComputeNode {
-    const MobileScenario *scenario; // borrowed; owned by the root/driver
-    const std::vector<Action> *plan; // borrowed
+    const MobileScenario &scenario; // borrowed; owned by the root/driver
+    const std::vector<Action> &plan; // borrowed
     int action_index; // -1 at the root
 
     CConfig q_arm;
@@ -53,8 +53,8 @@ struct HopMobileNode : rai::ComputeNode {
 
     std::vector<CConfig> trajectory;
 
-    HopMobileNode(const MobileScenario *scenario, const std::vector<Action> *plan);
-    HopMobileNode(HopMobileNode *parent, int childIndex);
+    HopMobileNode(const MobileScenario &scenario, const std::vector<Action> &plan);
+    HopMobileNode(HopMobileNode &parent, int childIndex);
 
     virtual void untimedCompute();
     virtual int getNumDecisions() { return isComplete && isFeasible && !isTerminal ? -1 : 0; }

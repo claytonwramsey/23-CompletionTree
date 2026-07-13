@@ -1,22 +1,23 @@
 #include "HopCoffeeNode.h"
 #include "hop_pose.h"
+#include <algorithm>
 #include <cstdlib>
 #include <random>
 
 namespace hopct {
 
-static size_t findItem(const CoffeeScenario *scenario, uint8_t kind, uint64_t index) {
-    size_t n = hopcxx_coffee_num_objects(scenario);
+static size_t findItem(const CoffeeScenario &scenario, uint8_t kind, uint64_t index) {
+    size_t n = hopcxx_coffee_num_objects(&scenario);
     for (size_t i = 0; i < n; i++) {
-        if (hopcxx_coffee_object_kind(scenario, i) == kind
-            && hopcxx_coffee_object_index(scenario, i) == index) {
+        if (hopcxx_coffee_object_kind(&scenario, i) == kind
+            && hopcxx_coffee_object_index(&scenario, i) == index) {
             return i;
         }
     }
     HALT("coffee item (kind=" << (int)kind << ", index=" << index << ") not found in scenario");
 }
 
-std::vector<CoffeeAction> makeCoffeePlan(const CoffeeScenario *scenario) {
+std::vector<CoffeeAction> makeCoffeePlan(const CoffeeScenario &scenario) {
     size_t cup0 = findItem(scenario, 0, 0);
     size_t creamCup = findItem(scenario, 0, 1);
     size_t sugarCup = findItem(scenario, 0, 2);
@@ -38,15 +39,15 @@ std::vector<CoffeeAction> makeCoffeePlan(const CoffeeScenario *scenario) {
     };
 }
 
-static Environment *buildAttemptEnv(
-    const CoffeeScenario *scenario, const std::vector<CPose> &poses, size_t movingIndex) {
-    Environment *env = hopcxx_env_clone(hopcxx_coffee_env(scenario));
-    float object_r = hopcxx_coffee_object_r(scenario);
+static EnvPtr buildAttemptEnv(
+    const CoffeeScenario &scenario, const std::vector<CPose> &poses, size_t movingIndex) {
+    EnvPtr env = wrapEnv(hopcxx_env_clone(hopcxx_coffee_env(&scenario)));
+    float object_r = hopcxx_coffee_object_r(&scenario);
     for (size_t i = 0; i < poses.size(); i++) {
         if (i == movingIndex) {
             continue;
         }
-        hopcxx_env_add_ball(env, poses[i].x, poses[i].y, poses[i].z, object_r);
+        hopcxx_env_add_ball(env.get(), poses[i].x, poses[i].y, poses[i].z, object_r);
     }
     return env;
 }
@@ -64,18 +65,18 @@ static CPose sampleZRot() {
 }
 
 HopCoffeeNode::HopCoffeeNode(
-    const CoffeeScenario *scenario, const std::vector<CoffeeAction> *plan, RobotTag robot)
+    const CoffeeScenario &scenario, const std::vector<CoffeeAction> &plan, RobotTag robot)
     : ComputeNode(nullptr)
     , scenario(scenario)
     , plan(plan)
     , action_index(-1)
     , robot(robot) {
-    q_arm = hopcxx_coffee_robot_q_start(scenario);
-    size_t n = hopcxx_coffee_num_objects(scenario);
+    q_arm = hopcxx_coffee_robot_q_start(&scenario);
+    size_t n = hopcxx_coffee_num_objects(&scenario);
     poses = std::make_shared<std::vector<CPose>>();
     poses->reserve(n);
     for (size_t i = 0; i < n; i++) {
-        poses->push_back(hopcxx_coffee_object_pose(scenario, i));
+        poses->push_back(hopcxx_coffee_object_pose(&scenario, i));
     }
     cupLogic = std::make_shared<std::vector<CupLogic>>(n);
     // cup0=EMPTY, cream_cup=CREAMY, both sugar cups=SWEET (see hop-bench's coffee.rs).
@@ -88,18 +89,18 @@ HopCoffeeNode::HopCoffeeNode(
     name = "root";
 }
 
-HopCoffeeNode::HopCoffeeNode(HopCoffeeNode *parent, int childIndex)
-    : ComputeNode(parent)
-    , scenario(parent->scenario)
-    , plan(parent->plan)
-    , action_index(parent->action_index + 1)
-    , q_arm(parent->q_arm)
-    , held_object(parent->held_object)
-    , grasp_offset(parent->grasp_offset)
-    , poses(parent->poses)
-    , cupLogic(parent->cupLogic)
-    , spoonScooped(parent->spoonScooped)
-    , robot(parent->robot) {
+HopCoffeeNode::HopCoffeeNode(HopCoffeeNode &parent, int childIndex)
+    : ComputeNode(&parent)
+    , scenario(parent.scenario)
+    , plan(parent.plan)
+    , action_index(parent.action_index + 1)
+    , q_arm(parent.q_arm)
+    , held_object(parent.held_object)
+    , grasp_offset(parent.grasp_offset)
+    , poses(parent.poses)
+    , cupLogic(parent.cupLogic)
+    , spoonScooped(parent.spoonScooped)
+    , robot(parent.robot) {
     name << "a" << action_index << "#" << childIndex;
 }
 
@@ -110,18 +111,18 @@ double HopCoffeeNode::branchingPenalty_child(int i) {
 }
 
 std::shared_ptr<rai::ComputeNode> HopCoffeeNode::createNewChild(int i) {
-    return std::make_shared<HopCoffeeNode>(this, i);
+    return std::make_shared<HopCoffeeNode>(*this, i);
 }
 
 void HopCoffeeNode::untimedCompute() {
     CHECK_GE(action_index, 0, "root should never be (re-)computed");
-    const CoffeeAction &act = plan->at(action_index);
+    const CoffeeAction &act = plan.at(action_index);
     const RobotVtable &rv = robot_vtable(robot);
-    float object_r = hopcxx_coffee_object_r(scenario);
+    float object_r = hopcxx_coffee_object_r(&scenario);
 
     if (!motionStarted) {
         diagStats().attempts[action_index]++;
-        Environment *env = buildAttemptEnv(scenario, *poses, act.item_index);
+        EnvPtr env = buildAttemptEnv(scenario, *poses, act.item_index);
         CConfig qTarget;
         bool ok = true;
         CPose eeTarget, heldRel = pose_identity();
@@ -135,14 +136,14 @@ void HopCoffeeNode::untimedCompute() {
             CPose target;
             switch (act.type) {
             case CoffeeActionType::Place:
-                target = rv.sample_table_pose(hopcxx_coffee_table(scenario));
+                target = rv.sample_table_pose(hopcxx_coffee_table(&scenario));
                 nextPlacedPose = target;
                 break;
             case CoffeeActionType::Fill: {
                 static thread_local std::mt19937 rng { std::random_device { }() };
                 std::uniform_real_distribution<float> unit(0.0f, 2.0f * (float)M_PI);
                 target = pose_mul(
-                    hopcxx_coffee_fill_pose(scenario), pose_from_xyz_yaw(0, 0, 0, unit(rng)));
+                    hopcxx_coffee_fill_pose(&scenario), pose_from_xyz_yaw(0, 0, 0, unit(rng)));
                 break;
             }
             case CoffeeActionType::Pour:
@@ -169,13 +170,12 @@ void HopCoffeeNode::untimedCompute() {
         ok = rv.ik(eeTarget, &qTarget);
         if (ok) {
             diagStats().ikOk[action_index]++;
-            ok = hasHeld ? rv.validate_attached(qTarget, env, object_r, heldRel)
-                         : rv.validate(qTarget, env);
+            ok = hasHeld ? rv.validate_attached(qTarget, env.get(), object_r, heldRel)
+                         : rv.validate(qTarget, env.get());
         }
         if (ok) {
             diagStats().validateOk[action_index]++;
         }
-        hopcxx_env_free(env);
         if (!ok) {
             isFeasible = false;
             isComplete = true;
@@ -188,13 +188,12 @@ void HopCoffeeNode::untimedCompute() {
         motionStarted = true;
     }
 
-    Environment *env = buildAttemptEnv(scenario, *poses, act.item_index);
+    EnvPtr env = buildAttemptEnv(scenario, *poses, act.item_index);
     int maxWp = hopInfo().maxTrajWaypoints;
     std::vector<float> buf(maxWp * HOPCXX_MAX_DIM);
     size_t len = 0;
-    int r = motionState.step(rv, q_arm, pendingQEnd, env, object_r, pendingHasHeld, pendingHeldRel,
-        buf.data(), maxWp, &len);
-    hopcxx_env_free(env);
+    int r = motionState.step(rv, q_arm, pendingQEnd, env.get(), object_r, pendingHasHeld,
+        pendingHeldRel, buf.data(), maxWp, &len);
 
     if (r == 0) {
         return;
@@ -209,9 +208,7 @@ void HopCoffeeNode::untimedCompute() {
     for (size_t w = 0; w < len; w++) {
         CConfig c { };
         c.dim = nextQArm.dim;
-        for (int d = 0; d < c.dim; d++) {
-            c.q[d] = buf[w * c.dim + d];
-        }
+        std::copy_n(buf.begin() + w * c.dim, c.dim, c.q);
         trajectory.push_back(c);
     }
     q_arm = nextQArm;
@@ -276,7 +273,7 @@ void HopCoffeeNode::untimedCompute() {
     isFeasible = true;
     isComplete = true;
     l = 1.;
-    if (action_index + 1 == (int)plan->size()) {
+    if (action_index + 1 == (int)plan.size()) {
         isTerminal = true;
     }
 }
