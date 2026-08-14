@@ -4,7 +4,7 @@
 // once per scenario.
 #include "hop_bench_cxx.h"
 
-enum class RobotTag { Panda, Ur5, Pr2 };
+enum class RobotTag { Panda, Ur5, Pr2, Ur10e };
 
 // The resumable motion-planning handle is typed per-robot on the Rust side
 // (hopcxx_panda_Planning* vs hopcxx_ur5_Planning* vs hopcxx_pr2_Planning*),
@@ -45,6 +45,7 @@ namespace hop_vtable_detail {
 HOPCXX_VTABLE_TRAMPOLINE(panda)
 HOPCXX_VTABLE_TRAMPOLINE(ur5)
 HOPCXX_VTABLE_TRAMPOLINE(pr2)
+HOPCXX_VTABLE_TRAMPOLINE(ur10e)
 #undef HOPCXX_VTABLE_TRAMPOLINE
 } // namespace hop_vtable_detail
 
@@ -82,6 +83,17 @@ inline const RobotVtable &robot_vtable(RobotTag tag) {
         hop_vtable_detail::pr2_motion_plan_resume,
         hop_vtable_detail::pr2_motion_plan_free,
     };
+    static const RobotVtable ur10e {
+        hopcxx_ur10e_ik,
+        hopcxx_ur10e_fk,
+        hopcxx_ur10e_validate,
+        hopcxx_ur10e_validate_attached,
+        hopcxx_ur10e_sample_rel_pose,
+        hopcxx_ur10e_sample_table_pose,
+        hop_vtable_detail::ur10e_motion_plan_start,
+        hop_vtable_detail::ur10e_motion_plan_resume,
+        hop_vtable_detail::ur10e_motion_plan_free,
+    };
     switch (tag) {
     case RobotTag::Panda:
         return panda;
@@ -89,6 +101,8 @@ inline const RobotVtable &robot_vtable(RobotTag tag) {
         return ur5;
     case RobotTag::Pr2:
         return pr2;
+    case RobotTag::Ur10e:
+        return ur10e;
     }
     __builtin_unreachable();
 }

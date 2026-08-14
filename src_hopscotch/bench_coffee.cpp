@@ -24,6 +24,9 @@ static RobotTag parseRobot(const char *s) {
     if (!strcmp(s, "pr2")) {
         return RobotTag::Pr2;
     }
+    if (!strcmp(s, "ur10e")) {
+        return RobotTag::Ur10e;
+    }
     HALT("unknown robot '" << s << "'");
 }
 
@@ -124,6 +127,8 @@ int main(int argc, char **argv) {
         rawScenario = hopcxx_make_coffee_scenario_panda(seed);
     } else if (robot == RobotTag::Ur5) {
         rawScenario = hopcxx_make_coffee_scenario_ur5(seed);
+    } else if (robot == RobotTag::Ur10e) {
+        rawScenario = hopcxx_make_coffee_scenario_ur10e(seed);
     } else {
         rawScenario = hopcxx_make_coffee_scenario_pr2(seed);
     }
