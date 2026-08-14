@@ -25,11 +25,6 @@
 
 namespace hopct {
 
-// Builds the fixed-order pick/place plan for a PickPlaceScenario: a single
-// Pick(target) for `cabinet` (target_block set), or Pick/Place pairs for
-// every object in scenario order for `packing` (goal_surface set).
-std::vector<Action> makePickPlacePlan(const PickPlaceScenario &scenario);
-
 struct HopPickPlaceNode : rai::ComputeNode {
     const PickPlaceScenario &scenario; // borrowed; owned by the root/driver
     const std::vector<Action> &plan; // borrowed
@@ -47,23 +42,23 @@ struct HopPickPlaceNode : rai::ComputeNode {
     // grasp/IK draw -- see untimedCompute()).
     bool motionStarted = false;
     MotionPlanState motionState;
-    CConfig pendingQEnd { };
-    CPose pendingHeldRel { };
+    CConfig pendingQEnd {};
+    CPose pendingHeldRel {};
     bool pendingHasHeld = false;
     // What this node's fields should become once motion planning succeeds:
-    CConfig nextQArm { };
+    CConfig nextQArm {};
     int64_t nextHeldObject = -1;
-    CPose nextGraspOffset { };
-    CPose nextPlacedPose { }; // only meaningful for Place actions
+    CPose nextGraspOffset {};
+    CPose nextPlacedPose {}; // only meaningful for Place actions
 
     // The trajectory this node's action took (empty at the root), kept around
     // purely so a solved plan can be dumped for visualization -- see
     // dump_solution.cpp. `dim` waypoint size matches the robot's DOF.
     std::vector<CConfig> trajectory;
 
-    // Root constructor.
-    HopPickPlaceNode(
-        const PickPlaceScenario &scenario, const std::vector<Action> &plan, RobotTag robot);
+    // Root constructor. `parent` is always a HopSkeletonRoot in practice.
+    HopPickPlaceNode(const PickPlaceScenario &scenario, const std::vector<Action> &plan,
+        RobotTag robot, rai::ComputeNode *parent = nullptr);
     // Child constructor: attempts `plan.at(parent.action_index + 1)` once.
     HopPickPlaceNode(HopPickPlaceNode &parent, int childIndex);
 

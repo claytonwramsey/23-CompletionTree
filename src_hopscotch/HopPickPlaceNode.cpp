@@ -5,30 +5,6 @@
 
 namespace hopct {
 
-std::vector<Action> makePickPlacePlan(const PickPlaceScenario &scenario) {
-    std::vector<Action> plan;
-    int64_t target = hopcxx_pickplace_target_block(&scenario);
-    int64_t goalSurface = hopcxx_pickplace_goal_surface(&scenario);
-    size_t n = hopcxx_pickplace_num_objects(&scenario);
-    if (target >= 0) {
-        // cabinet: goal is "holding target_block" -- a single Pick action.
-        for (size_t i = 0; i < n; i++) {
-            if ((int64_t)hopcxx_pickplace_object_id(&scenario, i) == target) {
-                plan.push_back({ ActionType::Pick, i });
-                break;
-            }
-        }
-    } else {
-        CHECK_GE(goalSurface, 0, "PickPlaceScenario must set target_block xor goal_surface");
-        // packing: goal is "every object on goal_surface" -- Pick/Place per object.
-        for (size_t i = 0; i < n; i++) {
-            plan.push_back({ ActionType::Pick, i });
-            plan.push_back({ ActionType::Place, i });
-        }
-    }
-    return plan;
-}
-
 // Build the static-geometry + other-objects env for one action attempt on
 // `movingIndex`. Other objects from `movingIndex` are modeled as rotated
 // cuboids.
@@ -45,9 +21,9 @@ static EnvPtr buildAttemptEnv(
     return env;
 }
 
-HopPickPlaceNode::HopPickPlaceNode(
-    const PickPlaceScenario &scenario, const std::vector<Action> &plan, RobotTag robot)
-    : ComputeNode(nullptr)
+HopPickPlaceNode::HopPickPlaceNode(const PickPlaceScenario &scenario,
+    const std::vector<Action> &plan, RobotTag robot, rai::ComputeNode *parent)
+    : ComputeNode(parent)
     , scenario(scenario)
     , plan(plan)
     , robot(robot)
@@ -80,9 +56,7 @@ HopPickPlaceNode::HopPickPlaceNode(HopPickPlaceNode &parent, int childIndex)
 
 void HopPickPlaceNode::write(std::ostream &os) const { os << name; }
 
-double HopPickPlaceNode::branchingPenalty_child(int i) {
-    return hopBranchingPenalty(i);
-}
+double HopPickPlaceNode::branchingPenalty_child(int i) { return hopBranchingPenalty(i); }
 
 std::shared_ptr<rai::ComputeNode> HopPickPlaceNode::createNewChild(int i) {
     return std::make_shared<HopPickPlaceNode>(*this, i);
@@ -105,10 +79,7 @@ void HopPickPlaceNode::untimedCompute() {
             CPose g = rv.sample_rel_pose();
             CPose objPose = (*poses)[act.object_index];
             CPose eeTarget = pose_mul(objPose, g);
-            ok = rv.ik(eeTarget, &qTarget);
-            if (ok) {
-                ok = rv.validate(qTarget, env.get());
-            }
+            ok = rv.ik(eeTarget, &qTarget) && rv.validate(qTarget, env.get());
             if (ok) {
                 nextHeldObject = (int64_t)act.object_index;
                 nextGraspOffset = g;
@@ -119,15 +90,12 @@ void HopPickPlaceNode::untimedCompute() {
             CHECK_EQ(held_object, (int64_t)act.object_index,
                 "place must follow pick of the same object");
             float block_r = hopcxx_pickplace_block_r(&scenario);
-            int64_t goalSurface = hopcxx_pickplace_goal_surface(&scenario);
-            CTable surface = hopcxx_pickplace_surface(&scenario, (size_t)goalSurface);
+            CTable surface = hopcxx_pickplace_surface(&scenario, act.surface_index);
             CPose target = rv.sample_table_pose(surface);
             CPose eeTarget = pose_mul(target, grasp_offset);
             CPose heldRel = pose_inverse(grasp_offset);
-            ok = rv.ik(eeTarget, &qTarget);
-            if (ok) {
-                ok = rv.validate_attached(qTarget, env.get(), block_r, heldRel);
-            }
+            ok = rv.ik(eeTarget, &qTarget)
+                && rv.validate_attached(qTarget, env.get(), block_r, heldRel);
             if (ok) {
                 nextHeldObject = -1;
                 nextGraspOffset = pose_identity();

@@ -6,6 +6,7 @@
 // merges into the same comparison pipeline.
 #include "HopBenchDriver.h"
 #include "HopPickPlaceNode.h"
+#include "HopSkeletonRoot.h"
 #include <Core/util.h>
 #include <Search/AStar.h>
 #include <algorithm>
@@ -154,24 +155,27 @@ int main(int argc, char **argv) {
         HALT("unknown problem '" << problem << "' (this driver supports cabinet/packing)");
     }
     ScenarioPtr<PickPlaceScenario> scenario(rawScenario, hopcxx_pickplace_free);
+    std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
 
-    std::vector<Action> plan = makePickPlacePlan(*scenario);
-
-    auto root = std::make_shared<HopPickPlaceNode>(*scenario, plan, robot);
+    auto root = std::make_shared<HopSkeletonRoot>(*scenario, robot);
     rai::AStar astar(root, rai::AStar::astar);
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);
+    HopPickPlaceNode *solutionNode
+        = result.solved ? dynamic_cast<HopPickPlaceNode *>(astar.solutions(0)) : nullptr;
+    size_t planLen = solutionNode
+        ? solutionNode->plan.size()
+        : (root->skeletonPlans.empty() ? 0 : root->skeletonPlans[0]->size());
 
-    printf(
-        "problem=%s robot=%s seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u plan_len=%zu\n",
+    printf("problem=%s robot=%s seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
+           "plan_len=%zu\n",
         problem.c_str(), robotName.c_str(), (unsigned long long)seed, result.solved ? 1 : 0,
-        result.elapsed_s, result.steps, result.nodes, plan.size());
+        result.elapsed_s, result.steps, result.nodes, planLen);
 
-    std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
-    if (result.solved && !dumpPath.empty()) {
-        dumpSolution(dumpPath, problem, robotName, seed, *scenario, plan,
-            dynamic_cast<HopPickPlaceNode *>(astar.solutions(0)));
+    if (solutionNode && !dumpPath.empty()) {
+        dumpSolution(
+            dumpPath, problem, robotName, seed, *scenario, solutionNode->plan, solutionNode);
     }
 
     return 0;

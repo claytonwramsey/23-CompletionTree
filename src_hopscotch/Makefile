@@ -2,7 +2,7 @@ BASE = ../rai
 
 OPTIM = fast_debug
 
-DEPEND = Core Algo Search
+DEPEND = Core Algo Search Logic
 
 # Defaults assume the standard sibling-checkout layout (hopscotch/ and
 # 23-CompletionTree/ both directly under the same parent directory, as in
@@ -23,7 +23,7 @@ LIBS += -L$(HOP_BENCH_CXX_LIB) -lhop_bench_cxx -Wl,-rpath,$(HOP_BENCH_CXX_LIB) -
 #   make MAIN=bench_hopscotch OUTPUT=x_hopscotch.exe
 #   make MAIN=bench_stacking OUTPUT=x_stacking.exe
 # `make all_bench` builds every driver at once.
-COMMON_SRCS = HopCommon.cpp HopPickPlaceNode.cpp HopStackingNode.cpp HopMobileNode.cpp HopCoffeeNode.cpp
+COMMON_SRCS = HopCommon.cpp HopPickPlaceNode.cpp HopSkeletonRoot.cpp HopStackingNode.cpp HopMobileNode.cpp HopCoffeeNode.cpp
 MAIN ?= bench_hopscotch
 OUTPUT ?= x_hopscotch.exe
 

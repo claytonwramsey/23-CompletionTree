@@ -41,6 +41,8 @@ enum class ActionType { Pick, Place };
 struct Action {
     ActionType type;
     size_t object_index; // index into the scenario's object list
+    // Which surface to place on. Meaningful only for place actions.
+    size_t surface_index = 0;
 };
 
 // Lightweight, always-on per-action-index diagnostic counters -- cheap
