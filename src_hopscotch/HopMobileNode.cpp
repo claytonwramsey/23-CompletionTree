@@ -68,7 +68,7 @@ HopMobileNode::HopMobileNode(HopMobileNode &parent, int childIndex)
 void HopMobileNode::write(std::ostream &os) const { os << name; }
 
 double HopMobileNode::branchingPenalty_child(int i) {
-    return ::pow(double(i) / hopInfo().w0, hopInfo().wP);
+    return hopBranchingPenalty(i);
 }
 
 std::shared_ptr<rai::ComputeNode> HopMobileNode::createNewChild(int i) {

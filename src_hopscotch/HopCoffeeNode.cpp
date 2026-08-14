@@ -107,7 +107,7 @@ HopCoffeeNode::HopCoffeeNode(HopCoffeeNode &parent, int childIndex)
 void HopCoffeeNode::write(std::ostream &os) const { os << name; }
 
 double HopCoffeeNode::branchingPenalty_child(int i) {
-    return ::pow(double(i) / hopInfo().w0, hopInfo().wP);
+    return hopBranchingPenalty(i);
 }
 
 std::shared_ptr<rai::ComputeNode> HopCoffeeNode::createNewChild(int i) {

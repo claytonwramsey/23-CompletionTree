@@ -18,8 +18,11 @@ template <typename T> using ScenarioPtr = std::unique_ptr<T, void (*)(T *)>;
 using EnvPtr = std::unique_ptr<Environment, void (*)(Environment *)>;
 inline EnvPtr wrapEnv(Environment *e) { return EnvPtr(e, hopcxx_env_free); }
 
+// The penalty function for a node of width `i`.
+double hopBranchingPenalty(int i);
+
 struct HopGlobalInfo {
-    RAI_PARAM("Hop/", double, w0, 4.)
+    RAI_PARAM("Hop/", double, w0, 1.)
     RAI_PARAM("Hop/", double, wP, 2.)
     RAI_PARAM("Hop/", int, maxTrajWaypoints, 512)
     // Motion planning is a genuinely incremental search (see MotionPlanState),

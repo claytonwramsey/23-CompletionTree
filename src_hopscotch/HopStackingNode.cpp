@@ -75,7 +75,7 @@ HopStackingNode::HopStackingNode(HopStackingNode &parent, int childIndex)
 void HopStackingNode::write(std::ostream &os) const { os << name; }
 
 double HopStackingNode::branchingPenalty_child(int i) {
-    return ::pow(double(i) / hopInfo().w0, hopInfo().wP);
+    return hopBranchingPenalty(i);
 }
 
 std::shared_ptr<rai::ComputeNode> HopStackingNode::createNewChild(int i) {

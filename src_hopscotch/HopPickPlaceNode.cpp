@@ -81,7 +81,7 @@ HopPickPlaceNode::HopPickPlaceNode(HopPickPlaceNode &parent, int childIndex)
 void HopPickPlaceNode::write(std::ostream &os) const { os << name; }
 
 double HopPickPlaceNode::branchingPenalty_child(int i) {
-    return ::pow(double(i) / hopInfo().w0, hopInfo().wP);
+    return hopBranchingPenalty(i);
 }
 
 std::shared_ptr<rai::ComputeNode> HopPickPlaceNode::createNewChild(int i) {

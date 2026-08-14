@@ -1,10 +1,15 @@
 #include "HopCommon.h"
+#include <cmath>
 
 namespace hopct {
 
 HopGlobalInfo &hopInfo() {
     static HopGlobalInfo singleton;
     return singleton;
+}
+
+double hopBranchingPenalty(int i) {
+    return ::pow(double(i) / hopInfo().w0, hopInfo().wP);
 }
 
 HopDiagStats &diagStats() {
