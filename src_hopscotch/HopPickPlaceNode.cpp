@@ -30,10 +30,8 @@ std::vector<Action> makePickPlacePlan(const PickPlaceScenario &scenario) {
 }
 
 // Build the static-geometry + other-objects env for one action attempt on
-// `movingIndex` (excluded, since it's either about to be picked or is the
-// held/attached object being placed -- see HopPickPlaceNode.h's design note
-// on why other objects are modeled as balls of radius block_r rather than
-// via full trajectory-vs-trajectory checking).
+// `movingIndex`. Other objects from `movingIndex` are modeled as rotated
+// cuboids.
 static EnvPtr buildAttemptEnv(
     const PickPlaceScenario &scenario, const std::vector<CPose> &poses, size_t movingIndex) {
     EnvPtr env = wrapEnv(hopcxx_env_clone(hopcxx_pickplace_env(&scenario)));
@@ -42,7 +40,7 @@ static EnvPtr buildAttemptEnv(
         if (i == movingIndex) {
             continue;
         }
-        hopcxx_env_add_ball(env.get(), poses[i].x, poses[i].y, poses[i].z, block_r);
+        hopcxx_env_add_cuboid(env.get(), poses[i], block_r);
     }
     return env;
 }
@@ -169,7 +167,7 @@ void HopPickPlaceNode::untimedCompute() {
     }
 
     for (size_t w = 0; w < len; w++) {
-        CConfig c { };
+        CConfig c {};
         c.dim = nextQArm.dim;
         std::copy_n(buf.begin() + w * c.dim, c.dim, c.q);
         trajectory.push_back(c);

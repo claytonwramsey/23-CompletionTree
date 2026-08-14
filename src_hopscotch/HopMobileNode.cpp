@@ -16,9 +16,8 @@ std::vector<Action> makeMobilePlan(const MobileScenario &scenario) {
 }
 
 // Builds the env for one action attempt: `scenario`'s static world
-// re-expressed in `bq`'s local frame, plus a ball per *other* object (also
-// re-expressed in that frame) -- mirrors `common/streams_mobile.py`'s
-// `cfree_traj_pose`/`cfree_traj_holding_pose` (`rel = bq.inverse() * p2`).
+// re-expressed in `bq`'s local frame, plus a rotated cuboid per other
+// object.
 static EnvPtr buildAttemptEnv(
     const MobileScenario &scenario, const std::vector<CPose> &poses, size_t movingIndex, CPose bq) {
     EnvPtr env = wrapEnv(hopcxx_env_transformed(hopcxx_mobile_env(&scenario), bq));
@@ -29,7 +28,7 @@ static EnvPtr buildAttemptEnv(
             continue;
         }
         CPose rel = pose_mul(bqInv, poses[i]);
-        hopcxx_env_add_ball(env.get(), rel.x, rel.y, rel.z, block_r);
+        hopcxx_env_add_cuboid(env.get(), rel, block_r);
     }
     return env;
 }
@@ -161,7 +160,7 @@ void HopMobileNode::untimedCompute() {
     }
 
     for (size_t w = 0; w < len; w++) {
-        CConfig c { };
+        CConfig c {};
         c.dim = nextQArm.dim;
         std::copy_n(buf.begin() + w * c.dim, c.dim, c.q);
         trajectory.push_back(c);

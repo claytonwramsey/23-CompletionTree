@@ -34,7 +34,7 @@ static EnvPtr buildAttemptEnv(
         if (i == movingIndex) {
             continue;
         }
-        hopcxx_env_add_ball(env.get(), poses[i].x, poses[i].y, poses[i].z, block_r);
+        hopcxx_env_add_cuboid(env.get(), poses[i], block_r);
     }
     return env;
 }
