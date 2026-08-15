@@ -91,7 +91,7 @@ void HopPickPlaceNode::untimedCompute() {
                 "place must follow pick of the same object");
             float block_r = hopcxx_pickplace_block_r(&scenario);
             CTable surface = hopcxx_pickplace_surface(&scenario, act.surface_index);
-            CPose target = rv.sample_table_pose(surface);
+            CPose target = pose_mul(rv.sample_table_pose(surface), sample_placing_rotation());
             CPose eeTarget = pose_mul(target, grasp_offset);
             CPose heldRel = pose_inverse(grasp_offset);
             ok = rv.ik(eeTarget, &qTarget)

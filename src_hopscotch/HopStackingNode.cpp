@@ -2,7 +2,6 @@
 #include "hop_pose.h"
 #include <algorithm>
 #include <cstdlib>
-#include <random>
 
 namespace hopct {
 
@@ -90,12 +89,12 @@ void HopStackingNode::untimedCompute() {
 
             CPose target;
             if (act.below_object_index < 0) {
-                target = rv.sample_table_pose(hopcxx_stacking_table(&scenario));
+                target = pose_mul(rv.sample_table_pose(hopcxx_stacking_table(&scenario)),
+                    sample_placing_rotation());
             } else {
                 CPose belowPose = (*poses)[(size_t)act.below_object_index];
-                static thread_local std::mt19937 rng { std::random_device {}() };
-                std::uniform_real_distribution<float> yawDist(0.0f, 2.0f * (float)M_PI);
-                target = pose_mul(belowPose, pose_from_xyz_yaw(0, 0, 2 * block_r, yawDist(rng)));
+                target = pose_mul(pose_mul(pose_from_xyz_yaw(0, 0, 2 * block_r, 0), belowPose),
+                    sample_placing_rotation());
             }
 
             CPose eeTarget = pose_mul(target, grasp_offset);

@@ -31,7 +31,7 @@ inline CPose pose_from_xyz_rpy(float x, float y, float z, float roll, float pitc
 inline CPose pose_mul(CPose a, CPose b) {
     float ax = a.qx, ay = a.qy, az = a.qz, aw = a.qw;
     float bx = b.qx, by = b.qy, bz = b.qz, bw = b.qw;
-    CPose r { };
+    CPose r {};
     r.qw = aw * bw - ax * bx - ay * by - az * bz;
     r.qx = aw * bx + ax * bw + ay * bz - az * by;
     r.qy = aw * by - ax * bz + ay * bw + az * bx;
@@ -48,7 +48,7 @@ inline CPose pose_mul(CPose a, CPose b) {
 
 inline CPose pose_inverse(CPose p) {
     // conjugate rotation
-    CPose inv { };
+    CPose inv {};
     inv.qx = -p.qx;
     inv.qy = -p.qy;
     inv.qz = -p.qz;
@@ -64,6 +64,51 @@ inline CPose pose_inverse(CPose p) {
     return inv;
 }
 
+// A random one of the 24 orientations that leave a cube's axis-aligned
+// footprint unchanged.
+inline CPose sample_placing_rotation() {
+    static thread_local std::mt19937 rng { std::random_device {}() };
+    static const float HALF_PI = (float)M_PI / 2.0f;
+    static const float PI = (float)M_PI;
+    CPose faceR;
+    switch (std::uniform_int_distribution<int>(0, 5)(rng)) {
+    case 0:
+        faceR = pose_from_xyz_rpy(0, 0, 0, 0, 0, 0);
+        break;
+    case 1:
+        faceR = pose_from_xyz_rpy(0, 0, 0, 0, 0, HALF_PI);
+        break;
+    case 2:
+        faceR = pose_from_xyz_rpy(0, 0, 0, 0, 0, PI);
+        break;
+    case 3:
+        faceR = pose_from_xyz_rpy(0, 0, 0, 0, 0, -HALF_PI);
+        break;
+    case 4:
+        faceR = pose_from_xyz_rpy(0, 0, 0, 0, HALF_PI, 0);
+        break;
+    default:
+        faceR = pose_from_xyz_rpy(0, 0, 0, 0, -HALF_PI, 0);
+        break;
+    }
+    CPose gripR;
+    switch (std::uniform_int_distribution<int>(0, 3)(rng)) {
+    case 0:
+        gripR = pose_identity();
+        break;
+    case 1:
+        gripR = pose_from_xyz_rpy(0, 0, 0, HALF_PI, 0, 0);
+        break;
+    case 2:
+        gripR = pose_from_xyz_rpy(0, 0, 0, PI, 0, 0);
+        break;
+    default:
+        gripR = pose_from_xyz_rpy(0, 0, 0, -HALF_PI, 0, 0);
+        break;
+    }
+    return pose_mul(faceR, gripR);
+}
+
 // Object-centric reachable-base construction for the `mobile` domain,
 // mirroring `common/streams_mobile.py`'s `sample_reachable_base` exactly
 // (see that file's comment for why: inverts hop-mobile's own
@@ -77,7 +122,7 @@ inline CPose pose_inverse(CPose p) {
 // be applied uniformly). Returns false if the constructed base pose falls
 // outside `baseBounds` ([xmin, ymin, xmax, ymax]).
 inline bool sample_reachable_base(CPose p, const float *baseBounds, CPose *out) {
-    static thread_local std::mt19937 rng { std::random_device { }() };
+    static thread_local std::mt19937 rng { std::random_device {}() };
     std::uniform_real_distribution<float> unit(0.0f, 1.0f);
     float r = std::sqrt(unit(rng));
     float phi = -unit(rng) * (float)M_PI / 2.0f; // uniform(-pi/2, 0)
