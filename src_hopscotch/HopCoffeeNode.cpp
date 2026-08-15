@@ -17,28 +17,6 @@ static size_t findItem(const CoffeeScenario &scenario, uint8_t kind, uint64_t in
     HALT("coffee item (kind=" << (int)kind << ", index=" << index << ") not found in scenario");
 }
 
-std::vector<CoffeeAction> makeCoffeePlan(const CoffeeScenario &scenario) {
-    size_t cup0 = findItem(scenario, 0, 0);
-    size_t creamCup = findItem(scenario, 0, 1);
-    size_t sugarCup = findItem(scenario, 0, 2);
-    size_t spoon = findItem(scenario, 1, 0);
-    using T = CoffeeActionType;
-    return {
-        { T::Pick, cup0, 0 },
-        { T::Fill, cup0, 0 },
-        { T::Place, cup0, 0 },
-        { T::Pick, creamCup, 0 },
-        { T::Pour, creamCup, cup0 },
-        { T::Place, creamCup, 0 },
-        { T::Pick, spoon, 0 },
-        { T::Scoop, spoon, sugarCup },
-        { T::Dump, spoon, cup0 },
-        { T::Stir, spoon, cup0 },
-        { T::Place, spoon, 0 },
-        { T::Pick, cup0, 0 },
-    };
-}
-
 static EnvPtr buildAttemptEnv(
     const CoffeeScenario &scenario, const std::vector<CPose> &poses, size_t movingIndex) {
     EnvPtr env = wrapEnv(hopcxx_env_clone(hopcxx_coffee_env(&scenario)));
@@ -64,9 +42,9 @@ static CPose sampleZRot() {
     return pose_from_xyz_yaw(0, 0, 0, unit(rng));
 }
 
-HopCoffeeNode::HopCoffeeNode(
-    const CoffeeScenario &scenario, const std::vector<CoffeeAction> &plan, RobotTag robot)
-    : ComputeNode(nullptr)
+HopCoffeeNode::HopCoffeeNode(const CoffeeScenario &scenario, const std::vector<CoffeeAction> &plan,
+    RobotTag robot, rai::ComputeNode *parent)
+    : ComputeNode(parent)
     , scenario(scenario)
     , plan(plan)
     , action_index(-1)

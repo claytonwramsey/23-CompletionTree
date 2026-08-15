@@ -4,6 +4,7 @@
 // conventions this mirrors.
 #include "HopBenchDriver.h"
 #include "HopCoffeeNode.h"
+#include "HopCoffeeSkeletonRoot.h"
 #include <Core/util.h>
 #include <Search/AStar.h>
 #include <algorithm>
@@ -134,30 +135,33 @@ int main(int argc, char **argv) {
     }
     ScenarioPtr<CoffeeScenario> scenario(rawScenario, hopcxx_coffee_free);
 
-    std::vector<CoffeeAction> plan = makeCoffeePlan(*scenario);
-
-    auto root = std::make_shared<HopCoffeeNode>(*scenario, plan, robot);
+    auto root = std::make_shared<HopCoffeeSkeletonRoot>(*scenario, robot);
     rai::AStar astar(root, rai::AStar::astar);
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);
+    HopCoffeeNode *solutionNode
+        = result.solved ? dynamic_cast<HopCoffeeNode *>(astar.solutions(0)) : nullptr;
+    size_t planLen = solutionNode
+        ? solutionNode->plan.size()
+        : (root->skeletonPlans.empty() ? 0 : root->skeletonPlans[0]->size());
 
     printf("problem=coffee robot=%s seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
            "plan_len=%zu\n",
         robotName.c_str(), (unsigned long long)seed, result.solved ? 1 : 0, result.elapsed_s,
-        result.steps, result.nodes, plan.size());
+        result.steps, result.nodes, planLen);
 
     std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
-    if (result.solved && !dumpPath.empty()) {
-        dumpSolution(dumpPath, robotName, seed, *scenario, plan,
-            dynamic_cast<HopCoffeeNode *>(astar.solutions(0)));
+    if (solutionNode && !dumpPath.empty()) {
+        dumpSolution(dumpPath, robotName, seed, *scenario, solutionNode->plan, solutionNode);
     }
 
-    if (rai::getParameter<bool>("diagStats", false)) {
+    if (solutionNode && rai::getParameter<bool>("diagStats", false)) {
+        const std::vector<CoffeeAction> &diagPlan = solutionNode->plan;
         printf("-- per-action diagnostic (attempts / ikOk / validateOk / motionOk):\n");
-        for (size_t i = 0; i < plan.size(); i++) {
+        for (size_t i = 0; i < diagPlan.size(); i++) {
             printf("  [%zu] %-6s item=%zu: attempts=%lld ikOk=%lld validateOk=%lld motionOk=%lld\n",
-                i, actionName(plan[i].type), plan[i].item_index, diagStats().attempts[i],
+                i, actionName(diagPlan[i].type), diagPlan[i].item_index, diagStats().attempts[i],
                 diagStats().ikOk[i], diagStats().validateOk[i], diagStats().motionOk[i]);
         }
     }

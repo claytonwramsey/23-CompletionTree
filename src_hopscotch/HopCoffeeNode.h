@@ -1,22 +1,5 @@
 #pragma once
-// A rai::ComputeNode implementation of hopscotch's `coffee` domain (see
-// hop-bench-py's CoffeeScenario / common/coffee_domain.pddl) -- same
-// resumable-motion-planning completion-tree structure as the other domains
-// (see HopPickPlaceNode.h), but the plan is a *fixed* hand-coded action
-// recipe (not a loop over N objects) matching the single fixed goal
-// ("cup0 held and mixed", see hop-bench's coffee.rs): cup0 starts EMPTY,
-// cream_cup starts CREAMY, both sugar cups start SWEET, so the only path to
-// Mixed is fill(cup0) + pour(cream_cup->cup0) + scoop+dump(spoon,sugar
-// cup->cup0) + stir(cup0), each interleaved with the pick/place needed to
-// free up the hand for the next held item:
-//   pick(cup0), fill(cup0), place(cup0),
-//   pick(cream_cup), pour(cream_cup, cup0), place(cream_cup),
-//   pick(spoon), scoop(spoon, sugar_cup), dump(spoon, cup0), stir(spoon, cup0), place(spoon),
-//   pick(cup0)
-// Fill/Pour/Scoop/Dump/Stir don't change any object's *position* (unlike
-// Place) -- they just move the held item to a computed pose (spigot pose,
-// "over" a target, or a flipped "dump" pose over a target -- see
-// `common/streams_coffee.py`) and flip a logical cup/spoon flag on success.
+// A rai::ComputeNode implementation of hopscotch's `coffee` domain.
 #include "HopCommon.h"
 #include "hop_bench_cxx.h"
 #include "hop_robot_vtable.h"
@@ -34,12 +17,6 @@ struct CoffeeAction {
     size_t target_index; // reference item for Pour/Scoop/Dump/Stir's "over ___" pose (unused
                          // otherwise)
 };
-
-// The fixed 12-action recipe described above, resolved to this scenario's
-// actual object indices (cup0/cream_cup/sugar_cup/spoon0, looked up by
-// (kind, index) since array position isn't guaranteed -- see
-// CoffeeScenario's docstring in hop-bench-cxx/src/lib.rs).
-std::vector<CoffeeAction> makeCoffeePlan(const CoffeeScenario &scenario);
 
 // Per-cup logical state, mirroring hop_problem::coffee::CupState -- either
 // Unmixed with some subset of {coffee, sugar, cream}, or Mixed.
@@ -63,20 +40,20 @@ struct HopCoffeeNode : rai::ComputeNode {
 
     bool motionStarted = false;
     MotionPlanState motionState;
-    CConfig pendingQEnd { };
-    CPose pendingHeldRel { };
+    CConfig pendingQEnd {};
+    CPose pendingHeldRel {};
     bool pendingHasHeld = false;
-    CConfig nextQArm { };
+    CConfig nextQArm {};
     int64_t nextHeldObject = -1;
-    CPose nextGraspOffset { };
-    CPose nextPlacedPose { }; // only meaningful for Place
-    CupLogic nextCupLogic { }; // only meaningful for Fill/Pour/Dump/Stir (on the relevant cup)
+    CPose nextGraspOffset {};
+    CPose nextPlacedPose {}; // only meaningful for Place
+    CupLogic nextCupLogic {}; // only meaningful for Fill/Pour/Dump/Stir (on the relevant cup)
     bool nextSpoonScooped = false;
 
     std::vector<CConfig> trajectory;
 
-    HopCoffeeNode(
-        const CoffeeScenario &scenario, const std::vector<CoffeeAction> &plan, RobotTag robot);
+    HopCoffeeNode(const CoffeeScenario &scenario, const std::vector<CoffeeAction> &plan,
+        RobotTag robot, rai::ComputeNode *parent = nullptr);
     HopCoffeeNode(HopCoffeeNode &parent, int childIndex);
 
     RobotTag robot;
