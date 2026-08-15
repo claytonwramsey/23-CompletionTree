@@ -4,6 +4,7 @@
 // conventions this mirrors.
 #include "HopBenchDriver.h"
 #include "HopStackingNode.h"
+#include "HopStackingSkeletonRoot.h"
 #include <Core/util.h>
 #include <Search/AStar.h>
 #include <algorithm>
@@ -112,24 +113,26 @@ int main(int argc, char **argv) {
         rawScenario = hopcxx_make_stacking_scenario_pr2(seed);
     }
     ScenarioPtr<StackingScenario> scenario(rawScenario, hopcxx_stacking_free);
+    std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
 
-    std::vector<Action> plan = makeStackingPlan(*scenario);
-
-    auto root = std::make_shared<HopStackingNode>(*scenario, plan, robot);
+    auto root = std::make_shared<HopStackingSkeletonRoot>(*scenario, robot);
     rai::AStar astar(root, rai::AStar::astar);
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);
+    HopStackingNode *solutionNode
+        = result.solved ? dynamic_cast<HopStackingNode *>(astar.solutions(0)) : nullptr;
+    size_t planLen = solutionNode
+        ? solutionNode->plan.size()
+        : (root->skeletonPlans.empty() ? 0 : root->skeletonPlans[0]->size());
 
     printf("problem=stacking robot=%s seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
            "plan_len=%zu\n",
         robotName.c_str(), (unsigned long long)seed, result.solved ? 1 : 0, result.elapsed_s,
-        result.steps, result.nodes, plan.size());
+        result.steps, result.nodes, planLen);
 
-    std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
-    if (result.solved && !dumpPath.empty()) {
-        dumpSolution(dumpPath, robotName, seed, *scenario, plan,
-            dynamic_cast<HopStackingNode *>(astar.solutions(0)));
+    if (solutionNode && !dumpPath.empty()) {
+        dumpSolution(dumpPath, robotName, seed, *scenario, solutionNode->plan, solutionNode);
     }
 
     return 0;

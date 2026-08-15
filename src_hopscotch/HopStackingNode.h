@@ -1,13 +1,5 @@
 #pragma once
-// A rai::ComputeNode implementation of hopscotch's `stacking` domain
-// (see hop-bench-py's StackingScenario) -- same completion-tree structure as
-// HopPickPlaceNode (see that file's docstring for the design rationale,
-// including the resumable-motion-planning state machine both share), but
-// the plan is always Pick/Place pairs in `goal_order` (bottom-to-top), and a
-// Place's target pose is either a free table pose (bottom block) or directly
-// on top of the block placed immediately before it in the tower (matching
-// `common/streams_stacking.py`'s `sample_stack_pose`: `p_below *
-// Pose.from_xyz_yaw(0, 0, 2*block_r, random_yaw)`).
+// A rai::ComputeNode implementation of hopscotch's stacking domain.
 #include "HopCommon.h"
 #include "hop_bench_cxx.h"
 #include "hop_robot_vtable.h"
@@ -16,9 +8,6 @@
 #include <vector>
 
 namespace hopct {
-
-// Pick/Place pairs for every object in `goal_order` (bottom-to-top).
-std::vector<Action> makeStackingPlan(const StackingScenario &scenario);
 
 struct HopStackingNode : rai::ComputeNode {
     const StackingScenario &scenario; // borrowed; owned by the root/driver
@@ -33,18 +22,18 @@ struct HopStackingNode : rai::ComputeNode {
 
     bool motionStarted = false;
     MotionPlanState motionState;
-    CConfig pendingQEnd { };
-    CPose pendingHeldRel { };
+    CConfig pendingQEnd {};
+    CPose pendingHeldRel {};
     bool pendingHasHeld = false;
-    CConfig nextQArm { };
+    CConfig nextQArm {};
     int64_t nextHeldObject = -1;
-    CPose nextGraspOffset { };
-    CPose nextPlacedPose { };
+    CPose nextGraspOffset {};
+    CPose nextPlacedPose {};
 
     std::vector<CConfig> trajectory;
 
-    HopStackingNode(
-        const StackingScenario &scenario, const std::vector<Action> &plan, RobotTag robot);
+    HopStackingNode(const StackingScenario &scenario, const std::vector<Action> &plan,
+        RobotTag robot, rai::ComputeNode *parent = nullptr);
     HopStackingNode(HopStackingNode &parent, int childIndex);
 
     virtual void untimedCompute();

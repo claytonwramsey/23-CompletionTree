@@ -43,6 +43,8 @@ struct Action {
     size_t object_index; // index into the scenario's object list
     // Which surface to place on. Meaningful only for place actions.
     size_t surface_index = 0;
+    // Which object to place directly on top of. -1 means on the table.
+    int64_t below_object_index = -1;
 };
 
 // Lightweight, always-on per-action-index diagnostic counters -- cheap
