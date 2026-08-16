@@ -37,11 +37,13 @@ struct HopGlobalInfo {
 };
 HopGlobalInfo &hopInfo();
 
-enum class ActionType { Pick, Place };
+enum class ActionType { Pick, Place, Move };
 struct Action {
     ActionType type;
-    size_t object_index; // index into the scenario's object list
-    // Which surface to place on. Meaningful only for place actions.
+    size_t object_index; // index into the scenario's object list; unused by Move
+    // Which surface to place on. Meaningful for Place only -- Move carries no
+    // target; HopMobileNode picks its own target by scanning ahead in the
+    // plan for the next Pick (see its untimedCompute).
     size_t surface_index = 0;
     // Which object to place directly on top of. -1 means on the table.
     int64_t below_object_index = -1;

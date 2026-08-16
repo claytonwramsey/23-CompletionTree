@@ -4,6 +4,7 @@
 // conventions this mirrors. No `-robot` flag: mobile is always PR2.
 #include "HopBenchDriver.h"
 #include "HopMobileNode.h"
+#include "HopMobileSkeletonRoot.h"
 #include <Core/util.h>
 #include <Search/AStar.h>
 #include <algorithm>
@@ -60,8 +61,11 @@ static void dumpSolution(const std::string &path, uint64_t seed, const MobileSce
     for (size_t i = 0; i < chain.size(); i++) {
         HopMobileNode *node = chain[i];
         const Action &act = plan[node->action_index];
-        os << "    {\"type\": \"" << (act.type == ActionType::Pick ? "pick" : "place")
-           << "\", \"object_index\": " << act.object_index << ", \"base_pose\": ";
+        const char *actionName = act.type == ActionType::Pick ? "pick"
+            : act.type == ActionType::Place                   ? "place"
+                                                              : "move";
+        os << "    {\"type\": \"" << actionName << "\", \"object_index\": " << act.object_index
+           << ", \"base_pose\": ";
         writePose(os, node->base_pose);
         os << ", \"trajectory\": [";
         for (size_t w = 0; w < node->trajectory.size(); w++) {
@@ -94,23 +98,26 @@ int main(int argc, char **argv) {
     int nodeCap = rai::getParameter<int>("nodeCap", 4000000);
 
     ScenarioPtr<MobileScenario> scenario(hopcxx_make_mobile_scenario(seed), hopcxx_mobile_free);
-    std::vector<Action> plan = makeMobilePlan(*scenario);
 
-    auto root = std::make_shared<HopMobileNode>(*scenario, plan);
+    auto root = std::make_shared<HopMobileSkeletonRoot>(*scenario);
     rai::AStar astar(root, rai::AStar::astar);
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);
+    HopMobileNode *solutionNode
+        = result.solved ? dynamic_cast<HopMobileNode *>(astar.solutions(0)) : nullptr;
+    size_t planLen = solutionNode
+        ? solutionNode->plan.size()
+        : (root->skeletonPlans.empty() ? 0 : root->skeletonPlans[0]->size());
 
     printf("problem=mobile robot=pr2 seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
            "plan_len=%zu\n",
         (unsigned long long)seed, result.solved ? 1 : 0, result.elapsed_s, result.steps,
-        result.nodes, plan.size());
+        result.nodes, planLen);
 
     std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
-    if (result.solved && !dumpPath.empty()) {
-        dumpSolution(
-            dumpPath, seed, *scenario, plan, dynamic_cast<HopMobileNode *>(astar.solutions(0)));
+    if (solutionNode && !dumpPath.empty()) {
+        dumpSolution(dumpPath, seed, *scenario, solutionNode->plan, solutionNode);
     }
 
     return 0;

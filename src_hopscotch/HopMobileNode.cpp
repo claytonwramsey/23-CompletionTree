@@ -2,18 +2,9 @@
 #include "hop_pose.h"
 #include <algorithm>
 #include <cstdlib>
+#include <random>
 
 namespace hopct {
-
-std::vector<Action> makeMobilePlan(const MobileScenario &scenario) {
-    size_t n = hopcxx_mobile_num_objects(&scenario);
-    std::vector<Action> plan;
-    for (size_t i = 0; i < n; i++) {
-        plan.push_back({ ActionType::Pick, i });
-        plan.push_back({ ActionType::Place, i });
-    }
-    return plan;
-}
 
 // Builds the env for one action attempt: `scenario`'s static world
 // re-expressed in `bq`'s local frame, plus a rotated cuboid per other
@@ -33,8 +24,9 @@ static EnvPtr buildAttemptEnv(
     return env;
 }
 
-HopMobileNode::HopMobileNode(const MobileScenario &scenario, const std::vector<Action> &plan)
-    : ComputeNode(nullptr)
+HopMobileNode::HopMobileNode(
+    const MobileScenario &scenario, const std::vector<Action> &plan, rai::ComputeNode *parent)
+    : ComputeNode(parent)
     , scenario(scenario)
     , plan(plan)
     , action_index(-1) {
@@ -67,9 +59,7 @@ HopMobileNode::HopMobileNode(HopMobileNode &parent, int childIndex)
 
 void HopMobileNode::write(std::ostream &os) const { os << name; }
 
-double HopMobileNode::branchingPenalty_child(int i) {
-    return hopBranchingPenalty(i);
-}
+double HopMobileNode::branchingPenalty_child(int i) { return hopBranchingPenalty(i); }
 
 std::shared_ptr<rai::ComputeNode> HopMobileNode::createNewChild(int i) {
     return std::make_shared<HopMobileNode>(*this, i);
@@ -80,55 +70,99 @@ void HopMobileNode::untimedCompute() {
     const Action &act = plan.at(action_index);
     const RobotVtable &rv = robot_vtable(RobotTag::Pr2);
 
-    if (!motionStarted) {
+    // single-shot geometric move.
+    // Selects target poses close to the next action.
+    if (act.type == ActionType::Move) {
         float baseBounds[4];
         hopcxx_mobile_base_bounds(&scenario, baseBounds);
+        const Action *nextPickTarget = nullptr;
+        for (size_t k = (size_t)action_index + 1;
+            k < plan.size() && plan[k].type != ActionType::Move; k++) {
+            if (plan[k].type == ActionType::Pick) {
+                nextPickTarget = &plan[k];
+                break;
+            }
+        }
+        CPose bq;
+        bool ok;
+        if (nextPickTarget) {
+            CPose targetPoint = (*poses)[nextPickTarget->object_index];
+            ok = sample_reachable_base(targetPoint, baseBounds, &bq);
+        } else {
+            static thread_local std::mt19937 rng { std::random_device {}() };
+            std::uniform_real_distribution<float> xDist(baseBounds[0], baseBounds[2]);
+            std::uniform_real_distribution<float> yDist(baseBounds[1], baseBounds[3]);
+            std::uniform_real_distribution<float> yawDist(0.0f, 2.0f * (float)M_PI);
+            bq = pose_from_xyz_yaw(xDist(rng), yDist(rng), 0.0f, yawDist(rng));
+            ok = true;
+        }
+        if (ok) {
+            size_t excludeIndex = held_object >= 0 ? (size_t)held_object : poses->size();
+            EnvPtr env = buildAttemptEnv(scenario, *poses, excludeIndex, bq);
+            if (held_object >= 0) {
+                float block_r = hopcxx_mobile_block_r(&scenario);
+                CPose heldRel = pose_inverse(grasp_offset);
+                ok = rv.validate_attached(q_arm, env.get(), block_r, heldRel);
+            } else {
+                ok = rv.validate(q_arm, env.get());
+            }
+        }
+        if (!ok) {
+            isFeasible = false;
+            isComplete = true;
+            return;
+        }
+        base_pose = bq;
+        isFeasible = true;
+        isComplete = true;
+        l = 1.;
+        if (action_index + 1 == (int)plan.size()) {
+            isTerminal = true;
+        }
+        return;
+    }
+
+    if (!motionStarted) {
         CConfig qTarget;
         bool ok;
-        CPose bq;
+
         if (act.type == ActionType::Pick) {
             CPose objPose = (*poses)[act.object_index];
-            ok = sample_reachable_base(objPose, baseBounds, &bq);
+            CPose g = rv.sample_rel_pose();
+            CPose targetLocal = pose_mul(pose_inverse(base_pose), objPose);
+            CPose eeTarget = pose_mul(targetLocal, g);
+            ok = rv.ik(eeTarget, &qTarget);
             if (ok) {
-                CPose g = rv.sample_rel_pose();
-                CPose targetLocal = pose_mul(pose_inverse(bq), objPose);
-                CPose eeTarget = pose_mul(targetLocal, g);
-                ok = rv.ik(eeTarget, &qTarget);
-                if (ok) {
-                    EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index, bq);
-                    ok = rv.validate(qTarget, env.get());
-                }
-                if (ok) {
-                    nextHeldObject = (int64_t)act.object_index;
-                    nextGraspOffset = g;
-                    pendingHasHeld = false;
-                    pendingHeldRel = pose_identity();
-                }
+                EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index, base_pose);
+                ok = rv.validate(qTarget, env.get());
+            }
+            if (ok) {
+                nextHeldObject = (int64_t)act.object_index;
+                nextGraspOffset = g;
+                pendingHasHeld = false;
+                pendingHeldRel = pose_identity();
             }
         } else {
             CHECK_EQ(held_object, (int64_t)act.object_index,
                 "place must follow pick of the same object");
-            size_t goalSurface = hopcxx_mobile_goal_surface(&scenario);
-            CTable surface = hopcxx_mobile_surface(&scenario, goalSurface);
+
+            CTable surface = hopcxx_mobile_surface(&scenario, act.surface_index);
             CPose target = rv.sample_table_pose(surface); // world frame
-            ok = sample_reachable_base(target, baseBounds, &bq);
+            float block_r = hopcxx_mobile_block_r(&scenario);
+            CPose targetLocal = pose_mul(pose_inverse(base_pose), target);
+            CPose eeTarget = pose_mul(targetLocal, grasp_offset);
+            CPose heldRel = pose_inverse(grasp_offset);
+            ok = rv.ik(eeTarget, &qTarget);
             if (ok) {
-                float block_r = hopcxx_mobile_block_r(&scenario);
-                CPose targetLocal = pose_mul(pose_inverse(bq), target);
-                CPose eeTarget = pose_mul(targetLocal, grasp_offset);
-                CPose heldRel = pose_inverse(grasp_offset);
-                ok = rv.ik(eeTarget, &qTarget);
-                if (ok) {
-                    EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index, bq);
-                    ok = rv.validate_attached(qTarget, env.get(), block_r, heldRel);
-                }
-                if (ok) {
-                    nextHeldObject = -1;
-                    nextGraspOffset = pose_identity();
-                    nextPlacedPose = target;
-                    pendingHasHeld = true;
-                    pendingHeldRel = heldRel;
-                }
+                EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index, base_pose);
+                ok = rv.validate_attached(qTarget, env.get(), block_r, heldRel);
+            }
+            if (ok) {
+                nextHeldObject = -1;
+                nextGraspOffset = pose_identity();
+                nextPlacedPose = target;
+                pendingHasHeld = true;
+                pendingHeldRel = heldRel;
             }
         }
         if (!ok) {
@@ -138,7 +172,7 @@ void HopMobileNode::untimedCompute() {
         }
         nextQArm = qTarget;
         pendingQEnd = qTarget;
-        pendingBasePose = bq;
+        pendingBasePose = base_pose; // Pick/Place never change the base
         motionStarted = true;
     }
 
