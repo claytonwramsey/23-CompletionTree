@@ -8,9 +8,7 @@ HopGlobalInfo &hopInfo() {
     return singleton;
 }
 
-double hopBranchingPenalty(int i) {
-    return ::pow(double(i) / hopInfo().w0, hopInfo().wP);
-}
+double hopBranchingPenalty(int i) { return ::pow(double(i) / hopInfo().w0, hopInfo().wP); }
 
 HopDiagStats &diagStats() {
     static HopDiagStats singleton;
@@ -28,7 +26,8 @@ int MotionPlanState::step(const RobotVtable &rvArg, CConfig q_start, CConfig q_e
         }
     }
     int samplesPerResume = hopInfo().motionSamplesPerResume;
-    int r = rv->motion_plan_resume(handle, (size_t)samplesPerResume, out_buf, out_cap, out_len);
+    int r = rv->motion_plan_resume(
+        handle, static_cast<size_t>(samplesPerResume), out_buf, out_cap, out_len);
     if (r == 1) {
         reset();
         return 1;

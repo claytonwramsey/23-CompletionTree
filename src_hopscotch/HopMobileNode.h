@@ -45,14 +45,14 @@ struct HopMobileNode : rai::ComputeNode {
 
     bool motionStarted = false;
     MotionPlanState motionState;
-    CConfig pendingQEnd { };
-    CPose pendingHeldRel { };
+    CConfig pendingQEnd {};
+    CPose pendingHeldRel {};
     bool pendingHasHeld = false;
-    CPose pendingBasePose { }; // the (possibly new) base pose this attempt plans in
-    CConfig nextQArm { };
+    CPose pendingBasePose {}; // the (possibly new) base pose this attempt plans in
+    CConfig nextQArm {};
     int64_t nextHeldObject = -1;
-    CPose nextGraspOffset { };
-    CPose nextPlacedPose { }; // world frame
+    CPose nextGraspOffset {};
+    CPose nextPlacedPose {}; // world frame
 
     std::vector<CConfig> trajectory;
 
@@ -60,11 +60,11 @@ struct HopMobileNode : rai::ComputeNode {
         rai::ComputeNode *parent = nullptr);
     HopMobileNode(HopMobileNode &parent, int childIndex);
 
-    virtual void untimedCompute();
-    virtual int getNumDecisions() { return isComplete && isFeasible && !isTerminal ? -1 : 0; }
-    virtual double branchingPenalty_child(int i);
-    virtual std::shared_ptr<ComputeNode> createNewChild(int i);
-    virtual void write(std::ostream &os) const;
+    void untimedCompute() override;
+    int getNumDecisions() override { return isComplete && isFeasible && !isTerminal ? -1 : 0; }
+    double branchingPenalty_child(int i) override;
+    std::shared_ptr<ComputeNode> createNewChild(int i) override;
+    void write(std::ostream &os) const override;
 };
 
 } // namespace hopct

@@ -121,7 +121,7 @@ const std::vector<Action> *HopMobileSkeletonRoot::getOrBuildSkeleton(int i) {
     if (totalSkeletonCount >= 0 && i >= totalSkeletonCount) {
         return nullptr;
     }
-    while ((int)skeletonPlans.size() <= i) {
+    while (static_cast<int>(skeletonPlans.size()) <= i) {
         skeletonPlans.push_back(std::make_unique<std::vector<Action>>());
     }
     std::vector<Action> &plan = *skeletonPlans[i];
@@ -129,11 +129,11 @@ const std::vector<Action> *HopMobileSkeletonRoot::getOrBuildSkeleton(int i) {
         return &plan;
     }
 
-    while ((int)folAstar->solutions.N <= i && folAstar->queue.N > 0) {
+    while (static_cast<int>(folAstar->solutions.N) <= i && folAstar->queue.N > 0) {
         folAstar->step();
     }
-    if ((int)folAstar->solutions.N <= i) {
-        totalSkeletonCount = (int)folAstar->solutions.N;
+    if (static_cast<int>(folAstar->solutions.N) <= i) {
+        totalSkeletonCount = static_cast<int>(folAstar->solutions.N);
         return nullptr;
     }
     auto *sol = dynamic_cast<rai::FOL_World_State *>(folAstar->solutions(i));
@@ -148,9 +148,9 @@ const std::vector<Action> *HopMobileSkeletonRoot::getOrBuildSkeleton(int i) {
             continue;
         }
         std::string objName(d->parents(1)->key.p);
-        size_t objIndex = (size_t)std::atoi(objName.c_str() + 3);
+        size_t objIndex = static_cast<size_t>(std::atoi(objName.c_str() + 3));
         std::string surfName(d->parents(3)->key.p);
-        size_t surfIndex = (size_t)std::atoi(surfName.c_str() + 4);
+        size_t surfIndex = static_cast<size_t>(std::atoi(surfName.c_str() + 4));
         ActionType type = (ruleName == "pick") ? ActionType::Pick : ActionType::Place;
 
         if (type == ActionType::Place) {

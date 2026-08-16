@@ -76,16 +76,16 @@ DecisionRule place {
             , goalChain(goalChain)
             , satisfied(satisfied) { }
 
-        virtual std::shared_ptr<rai::TreeSearchNode> transition(int action) override {
+        std::shared_ptr<rai::TreeSearchNode> transition(int action) override {
             CHECK_GE(action, 0, "");
-            if ((uint)action < children.N && children(action)) {
+            if (static_cast<uint>(action) < children.N && children(action)) {
                 HALT("duplicate transition call");
             }
             if (L.state != state) {
                 L.setState(state, T_step);
             }
             L.T_real = T_real;
-            CHECK_LE(1 + (uint)action, actions.N, "that action doesn't exist");
+            CHECK_LE(1 + static_cast<uint>(action), actions.N, "that action doesn't exist");
 
             // Figure out this decision's effect on goalChain .
             auto newSatisfied = std::make_shared<std::vector<bool>>(*satisfied);
@@ -96,8 +96,8 @@ DecisionRule place {
                 const char *belowName = d->substitution(2)->key.p;
                 if ((ruleName == "pick" || ruleName == "place") && !strncmp(objName, "obj", 3)
                     && !strncmp(belowName, "obj", 3)) {
-                    size_t objIndex = (size_t)std::atoi(objName + 3);
-                    size_t belowIndex = (size_t)std::atoi(belowName + 3);
+                    size_t objIndex = static_cast<size_t>(std::atoi(objName + 3));
+                    size_t belowIndex = static_cast<size_t>(std::atoi(belowName + 3));
                     for (size_t k = 0; k < goalChain->size(); k++) {
                         if ((*goalChain)[k].first == objIndex
                             && (*goalChain)[k].second == belowIndex) {
@@ -119,9 +119,9 @@ DecisionRule place {
                 L, this, L.is_terminal_state(), goalChain, newSatisfied);
             s->folDecision = s->state->getNode("decision");
             // No non-terminal tiebreak bias.
-            s->f_prio = L.T_step + (double)unsatisfied;
+            s->f_prio = L.T_step + static_cast<double>(unsatisfied);
             s->name << L.T_step << '.' << action << ' ' << *actions(action);
-            while ((uint)action >= children.N) {
+            while (static_cast<uint>(action) >= children.N) {
                 children.append(0);
             }
             children(action) = s.get();
@@ -187,7 +187,7 @@ const std::vector<Action> *HopStackingSkeletonRoot::getOrBuildSkeleton(int i) {
     if (totalSkeletonCount >= 0 && i >= totalSkeletonCount) {
         return nullptr;
     }
-    while ((int)skeletonPlans.size() <= i) {
+    while (static_cast<int>(skeletonPlans.size()) <= i) {
         skeletonPlans.push_back(std::make_unique<std::vector<Action>>());
     }
     std::vector<Action> &plan = *skeletonPlans[i];
@@ -195,11 +195,11 @@ const std::vector<Action> *HopStackingSkeletonRoot::getOrBuildSkeleton(int i) {
         return &plan;
     }
 
-    while ((int)folAstar->solutions.N <= i && folAstar->queue.N > 0) {
+    while (static_cast<int>(folAstar->solutions.N) <= i && folAstar->queue.N > 0) {
         folAstar->step();
     }
-    if ((int)folAstar->solutions.N <= i) {
-        totalSkeletonCount = (int)folAstar->solutions.N;
+    if (static_cast<int>(folAstar->solutions.N) <= i) {
+        totalSkeletonCount = static_cast<int>(folAstar->solutions.N);
         return nullptr;
     }
     auto *sol = dynamic_cast<rai::FOL_World_State *>(folAstar->solutions(i));
@@ -209,14 +209,15 @@ const std::vector<Action> *HopStackingSkeletonRoot::getOrBuildSkeleton(int i) {
     for (rai::Node *d : decisions) {
         std::string ruleName(d->parents(0)->key.p);
         std::string objName(d->parents(1)->key.p);
-        size_t objIndex = (size_t)std::atoi(objName.c_str() + 3);
+        size_t objIndex = static_cast<size_t>(std::atoi(objName.c_str() + 3));
         if (ruleName == "pick") {
             plan.push_back({ ActionType::Pick, objIndex });
         } else {
             CHECK(ruleName == "place", "unexpected stacking rule '" << ruleName << "'");
             std::string belowName(d->parents(3)->key.p);
-            int64_t belowIndex
-                = belowName == "table" ? -1 : (int64_t)std::atoi(belowName.c_str() + 3);
+            int64_t belowIndex = belowName == "table"
+                ? -1
+                : static_cast<int64_t>(std::atoi(belowName.c_str() + 3));
             plan.push_back({ ActionType::Place, objIndex, 0, belowIndex });
         }
     }
@@ -227,8 +228,8 @@ const std::vector<Action> *HopStackingSkeletonRoot::getOrBuildSkeleton(int i) {
             if (a.type == ActionType::Pick) {
                 fprintf(stderr, " pick(%zu)", a.object_index);
             } else {
-                fprintf(
-                    stderr, " place(%zu,on=%lld)", a.object_index, (long long)a.below_object_index);
+                fprintf(stderr, " place(%zu,on=%lld)", a.object_index,
+                    static_cast<long long>(a.below_object_index));
             }
         }
         fprintf(stderr, "\n");

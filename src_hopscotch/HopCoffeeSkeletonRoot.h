@@ -22,12 +22,12 @@ struct HopCoffeeSkeletonRoot : rai::ComputeNode {
 
     HopCoffeeSkeletonRoot(const CoffeeScenario &scenario, RobotTag robot);
 
-    virtual void untimedCompute() { }
-    virtual int getNumDecisions() { return totalSkeletonCount; }
-    virtual double effortHeuristic() { return 11. + 10.; }
-    virtual double branchingPenalty_child(int i);
+    void untimedCompute() override { }
+    int getNumDecisions() override { return totalSkeletonCount; }
+    double effortHeuristic() override { return 11. + 10.; }
+    double branchingPenalty_child(int i) override;
 
-    virtual std::shared_ptr<ComputeNode> createNewChild(int i);
+    std::shared_ptr<ComputeNode> createNewChild(int i) override;
 
 private:
     const std::vector<CoffeeAction> *getOrBuildSkeleton(int i);

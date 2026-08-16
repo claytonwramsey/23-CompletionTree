@@ -81,13 +81,13 @@ void HopPickPlaceNode::untimedCompute() {
             CPose eeTarget = pose_mul(objPose, g);
             ok = rv.ik(eeTarget, &qTarget) && rv.validate(qTarget, env.get());
             if (ok) {
-                nextHeldObject = (int64_t)act.object_index;
+                nextHeldObject = static_cast<int64_t>(act.object_index);
                 nextGraspOffset = g;
                 pendingHasHeld = false;
                 pendingHeldRel = pose_identity();
             }
         } else {
-            CHECK_EQ(held_object, (int64_t)act.object_index,
+            CHECK_EQ(held_object, static_cast<int64_t>(act.object_index),
                 "place must follow pick of the same object");
             float block_r = hopcxx_pickplace_block_r(&scenario);
             CTable surface = hopcxx_pickplace_surface(&scenario, act.surface_index);
@@ -152,7 +152,7 @@ void HopPickPlaceNode::untimedCompute() {
     isFeasible = true;
     isComplete = true;
     l = 1.;
-    if (action_index + 1 == (int)plan.size()) {
+    if (action_index + 1 == static_cast<int>(plan.size())) {
         isTerminal = true;
     }
 }

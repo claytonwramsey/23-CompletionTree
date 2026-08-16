@@ -5,6 +5,7 @@
 // poses that came from or are going into the Rust side.
 #include "hop_bench_cxx.h"
 #include <cmath>
+#include <numbers>
 #include <random>
 
 inline CPose pose_identity() { return CPose { 0, 0, 0, 0, 0, 0, 1 }; }
@@ -68,8 +69,8 @@ inline CPose pose_inverse(CPose p) {
 // footprint unchanged.
 inline CPose sample_placing_rotation() {
     static thread_local std::mt19937 rng { std::random_device {}() };
-    static const float HALF_PI = (float)M_PI / 2.0f;
-    static const float PI = (float)M_PI;
+    static const float HALF_PI = std::numbers::pi_v<float> / 2.0f;
+    static const float PI = std::numbers::pi_v<float>;
     CPose faceR;
     switch (std::uniform_int_distribution<int>(0, 5)(rng)) {
     case 0:
@@ -125,9 +126,9 @@ inline bool sample_reachable_base(CPose p, const float *baseBounds, CPose *out) 
     static thread_local std::mt19937 rng { std::random_device {}() };
     std::uniform_real_distribution<float> unit(0.0f, 1.0f);
     float r = std::sqrt(unit(rng));
-    float phi = -unit(rng) * (float)M_PI / 2.0f; // uniform(-pi/2, 0)
+    float phi = -unit(rng) * std::numbers::pi_v<float> / 2.0f; // uniform(-pi/2, 0)
     float x = r * std::cos(phi), y = r * std::sin(phi);
-    float yaw = unit(rng) * 2.0f * (float)M_PI;
+    float yaw = unit(rng) * 2.0f * std::numbers::pi_v<float>;
     CPose rel = pose_from_xyz_yaw(x, y, p.z, yaw);
     CPose bq = pose_mul(p, pose_inverse(rel));
     if (bq.x < baseBounds[0] || bq.x > baseBounds[2] || bq.y < baseBounds[1]

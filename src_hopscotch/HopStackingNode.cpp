@@ -77,13 +77,13 @@ void HopStackingNode::untimedCompute() {
                 ok = rv.validate(qTarget, env.get());
             }
             if (ok) {
-                nextHeldObject = (int64_t)act.object_index;
+                nextHeldObject = static_cast<int64_t>(act.object_index);
                 nextGraspOffset = g;
                 pendingHasHeld = false;
                 pendingHeldRel = pose_identity();
             }
         } else {
-            CHECK_EQ(held_object, (int64_t)act.object_index,
+            CHECK_EQ(held_object, static_cast<int64_t>(act.object_index),
                 "place must follow pick of the same object");
             float block_r = hopcxx_stacking_block_r(&scenario);
 
@@ -92,7 +92,7 @@ void HopStackingNode::untimedCompute() {
                 target = pose_mul(rv.sample_table_pose(hopcxx_stacking_table(&scenario)),
                     sample_placing_rotation());
             } else {
-                CPose belowPose = (*poses)[(size_t)act.below_object_index];
+                CPose belowPose = (*poses)[static_cast<size_t>(act.below_object_index)];
                 target = pose_mul(pose_mul(pose_from_xyz_yaw(0, 0, 2 * block_r, 0), belowPose),
                     sample_placing_rotation());
             }
@@ -156,7 +156,7 @@ void HopStackingNode::untimedCompute() {
     isFeasible = true;
     isComplete = true;
     l = 1.;
-    if (action_index + 1 == (int)plan.size()) {
+    if (action_index + 1 == static_cast<int>(plan.size())) {
         isTerminal = true;
     }
 }

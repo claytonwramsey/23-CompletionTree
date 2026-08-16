@@ -37,10 +37,10 @@ inline TrialResult runSearch(rai::AStar &astar, double timeout_s, int stepCap, i
         if (r.elapsed_s >= timeout_s) {
             break;
         }
-        if ((int)astar.steps >= stepCap) {
+        if (static_cast<int>(astar.steps) >= stepCap) {
             break;
         }
-        if ((int)astar.mem.N >= nodeCap) {
+        if (static_cast<int>(astar.mem.N) >= nodeCap) {
             break;
         }
         if (!astar.queue.N) {

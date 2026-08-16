@@ -11,23 +11,22 @@
 #include <Search/AStar.h>
 #include <algorithm>
 #include <cstdio>
-#include <cstring>
 #include <fstream>
 #include <string>
 
 using namespace hopct;
 
-static RobotTag parseRobot(const char *s) {
-    if (!strcmp(s, "panda")) {
+static RobotTag parseRobot(const std::string &s) {
+    if (s == "panda") {
         return RobotTag::Panda;
     }
-    if (!strcmp(s, "ur5")) {
+    if (s == "ur5") {
         return RobotTag::Ur5;
     }
-    if (!strcmp(s, "pr2")) {
+    if (s == "pr2") {
         return RobotTag::Pr2;
     }
-    if (!strcmp(s, "ur10e")) {
+    if (s == "ur10e") {
         return RobotTag::Ur10e;
     }
     HALT("unknown robot '" << s << "'");
@@ -113,7 +112,7 @@ int main(int argc, char **argv) {
     // of this file (and dumpSolution) doesn't have to touch rai::String.
     std::string problem = rai::getParameter<rai::String>("problem", STRING("cabinet")).p;
     std::string robotName = rai::getParameter<rai::String>("robot", STRING("panda")).p;
-    uint64_t seed = (uint64_t)rai::getParameter<double>("seed", 0.);
+    uint64_t seed = static_cast<uint64_t>(rai::getParameter<double>("seed", 0.));
     double timeout_s = rai::getParameter<double>("timeout", 30.);
     // A step cap is still useful as a hard backstop, but the intended gate is
     // wall-clock time (matching the 30s-timeout convention used for both
@@ -128,7 +127,7 @@ int main(int argc, char **argv) {
     // solve in the allotted search").
     int nodeCap = rai::getParameter<int>("nodeCap", 4000000);
 
-    RobotTag robot = parseRobot(robotName.c_str());
+    RobotTag robot = parseRobot(robotName);
 
     PickPlaceScenario *rawScenario = nullptr;
     if (problem == "cabinet") {
@@ -170,8 +169,8 @@ int main(int argc, char **argv) {
 
     printf("problem=%s robot=%s seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
            "plan_len=%zu\n",
-        problem.c_str(), robotName.c_str(), (unsigned long long)seed, result.solved ? 1 : 0,
-        result.elapsed_s, result.steps, result.nodes, planLen);
+        problem.c_str(), robotName.c_str(), static_cast<unsigned long long>(seed),
+        result.solved ? 1 : 0, result.elapsed_s, result.steps, result.nodes, planLen);
 
     if (solutionNode && !dumpPath.empty()) {
         dumpSolution(

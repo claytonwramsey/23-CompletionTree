@@ -1,7 +1,9 @@
 #include "HopMobileNode.h"
 #include "hop_pose.h"
 #include <algorithm>
+#include <array>
 #include <cstdlib>
+#include <numbers>
 #include <random>
 
 namespace hopct {
@@ -73,10 +75,10 @@ void HopMobileNode::untimedCompute() {
     // single-shot geometric move.
     // Selects target poses close to the next action.
     if (act.type == ActionType::Move) {
-        float baseBounds[4];
-        hopcxx_mobile_base_bounds(&scenario, baseBounds);
+        std::array<float, 4> baseBounds;
+        hopcxx_mobile_base_bounds(&scenario, baseBounds.data());
         const Action *nextPickTarget = nullptr;
-        for (size_t k = (size_t)action_index + 1;
+        for (size_t k = static_cast<size_t>(action_index) + 1;
             k < plan.size() && plan[k].type != ActionType::Move; k++) {
             if (plan[k].type == ActionType::Pick) {
                 nextPickTarget = &plan[k];
@@ -87,17 +89,18 @@ void HopMobileNode::untimedCompute() {
         bool ok;
         if (nextPickTarget) {
             CPose targetPoint = (*poses)[nextPickTarget->object_index];
-            ok = sample_reachable_base(targetPoint, baseBounds, &bq);
+            ok = sample_reachable_base(targetPoint, baseBounds.data(), &bq);
         } else {
             static thread_local std::mt19937 rng { std::random_device {}() };
             std::uniform_real_distribution<float> xDist(baseBounds[0], baseBounds[2]);
             std::uniform_real_distribution<float> yDist(baseBounds[1], baseBounds[3]);
-            std::uniform_real_distribution<float> yawDist(0.0f, 2.0f * (float)M_PI);
+            std::uniform_real_distribution<float> yawDist(0.0f, 2.0f * std::numbers::pi_v<float>);
             bq = pose_from_xyz_yaw(xDist(rng), yDist(rng), 0.0f, yawDist(rng));
             ok = true;
         }
         if (ok) {
-            size_t excludeIndex = held_object >= 0 ? (size_t)held_object : poses->size();
+            size_t excludeIndex
+                = held_object >= 0 ? static_cast<size_t>(held_object) : poses->size();
             EnvPtr env = buildAttemptEnv(scenario, *poses, excludeIndex, bq);
             if (held_object >= 0) {
                 float block_r = hopcxx_mobile_block_r(&scenario);
@@ -116,7 +119,7 @@ void HopMobileNode::untimedCompute() {
         isFeasible = true;
         isComplete = true;
         l = 1.;
-        if (action_index + 1 == (int)plan.size()) {
+        if (action_index + 1 == static_cast<int>(plan.size())) {
             isTerminal = true;
         }
         return;
@@ -137,13 +140,13 @@ void HopMobileNode::untimedCompute() {
                 ok = rv.validate(qTarget, env.get());
             }
             if (ok) {
-                nextHeldObject = (int64_t)act.object_index;
+                nextHeldObject = static_cast<int64_t>(act.object_index);
                 nextGraspOffset = g;
                 pendingHasHeld = false;
                 pendingHeldRel = pose_identity();
             }
         } else {
-            CHECK_EQ(held_object, (int64_t)act.object_index,
+            CHECK_EQ(held_object, static_cast<int64_t>(act.object_index),
                 "place must follow pick of the same object");
 
             CTable surface = hopcxx_mobile_surface(&scenario, act.surface_index);
@@ -212,7 +215,7 @@ void HopMobileNode::untimedCompute() {
     isFeasible = true;
     isComplete = true;
     l = 1.;
-    if (action_index + 1 == (int)plan.size()) {
+    if (action_index + 1 == static_cast<int>(plan.size())) {
         isTerminal = true;
     }
 }

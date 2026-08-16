@@ -2,6 +2,7 @@
 #include "hop_pose.h"
 #include <algorithm>
 #include <cstdlib>
+#include <numbers>
 #include <random>
 
 namespace hopct {
@@ -14,7 +15,8 @@ static size_t findItem(const CoffeeScenario &scenario, uint8_t kind, uint64_t in
             return i;
         }
     }
-    HALT("coffee item (kind=" << (int)kind << ", index=" << index << ") not found in scenario");
+    HALT("coffee item (kind=" << static_cast<int>(kind) << ", index=" << index
+                              << ") not found in scenario");
 }
 
 static EnvPtr buildAttemptEnv(
@@ -32,13 +34,13 @@ static EnvPtr buildAttemptEnv(
 
 // Matches common/streams_coffee.py's `_zoff`/`_zrot` helpers.
 static CPose sampleZOff(float object_r) {
-    static thread_local std::mt19937 rng { std::random_device { }() };
+    static thread_local std::mt19937 rng { std::random_device {}() };
     std::uniform_real_distribution<float> mult(2.0f, 4.0f);
     return pose_from_xyz_yaw(0, 0, object_r * mult(rng), 0);
 }
 static CPose sampleZRot() {
-    static thread_local std::mt19937 rng { std::random_device { }() };
-    std::uniform_real_distribution<float> unit(0.0f, 2.0f * (float)M_PI);
+    static thread_local std::mt19937 rng { std::random_device {}() };
+    std::uniform_real_distribution<float> unit(0.0f, 2.0f * std::numbers::pi_v<float>);
     return pose_from_xyz_yaw(0, 0, 0, unit(rng));
 }
 
@@ -84,9 +86,7 @@ HopCoffeeNode::HopCoffeeNode(HopCoffeeNode &parent, int childIndex)
 
 void HopCoffeeNode::write(std::ostream &os) const { os << name; }
 
-double HopCoffeeNode::branchingPenalty_child(int i) {
-    return hopBranchingPenalty(i);
-}
+double HopCoffeeNode::branchingPenalty_child(int i) { return hopBranchingPenalty(i); }
 
 std::shared_ptr<rai::ComputeNode> HopCoffeeNode::createNewChild(int i) {
     return std::make_shared<HopCoffeeNode>(*this, i);
@@ -118,8 +118,8 @@ void HopCoffeeNode::untimedCompute() {
                 nextPlacedPose = target;
                 break;
             case CoffeeActionType::Fill: {
-                static thread_local std::mt19937 rng { std::random_device { }() };
-                std::uniform_real_distribution<float> unit(0.0f, 2.0f * (float)M_PI);
+                static thread_local std::mt19937 rng { std::random_device {}() };
+                std::uniform_real_distribution<float> unit(0.0f, 2.0f * std::numbers::pi_v<float>);
                 target = pose_mul(
                     hopcxx_coffee_fill_pose(&scenario), pose_from_xyz_yaw(0, 0, 0, unit(rng)));
                 break;
@@ -131,7 +131,7 @@ void HopCoffeeNode::untimedCompute() {
                     pose_mul(sampleZOff(object_r), (*poses)[act.target_index]), sampleZRot());
                 break;
             case CoffeeActionType::Dump: {
-                CPose flip = pose_from_xyz_rpy(0, 0, 0, (float)M_PI, 0, 0);
+                CPose flip = pose_from_xyz_rpy(0, 0, 0, std::numbers::pi_v<float>, 0, 0);
                 target
                     = pose_mul(pose_mul(pose_mul(sampleZOff(object_r), (*poses)[act.target_index]),
                                    sampleZRot()),
@@ -184,7 +184,7 @@ void HopCoffeeNode::untimedCompute() {
     diagStats().motionOk[action_index]++;
 
     for (size_t w = 0; w < len; w++) {
-        CConfig c { };
+        CConfig c {};
         c.dim = nextQArm.dim;
         std::copy_n(buf.begin() + w * c.dim, c.dim, c.q);
         trajectory.push_back(c);
@@ -193,7 +193,7 @@ void HopCoffeeNode::untimedCompute() {
 
     switch (act.type) {
     case CoffeeActionType::Pick:
-        held_object = (int64_t)act.item_index;
+        held_object = static_cast<int64_t>(act.item_index);
         grasp_offset = nextGraspOffset;
         break;
     case CoffeeActionType::Place: {
@@ -216,7 +216,7 @@ void HopCoffeeNode::untimedCompute() {
         auto nl = std::make_shared<std::vector<CupLogic>>(*cupLogic);
         CHECK((*nl)[act.item_index].cream, "pour precondition violated (src has no cream)");
         CHECK(!(*nl)[act.target_index].mixed, "pour precondition violated (dest already mixed)");
-        (*nl)[act.item_index] = CupLogic { }; // pouring empties the source
+        (*nl)[act.item_index] = CupLogic {}; // pouring empties the source
         (*nl)[act.target_index].cream = true;
         cupLogic = nl;
         break;
@@ -241,7 +241,7 @@ void HopCoffeeNode::untimedCompute() {
         auto nl = std::make_shared<std::vector<CupLogic>>(*cupLogic);
         CupLogic &c = (*nl)[act.target_index];
         CHECK(c.coffee && c.sugar && c.cream, "stir precondition violated (cup not ready to mix)");
-        c = CupLogic { };
+        c = CupLogic {};
         c.mixed = true;
         cupLogic = nl;
         break;
@@ -251,7 +251,7 @@ void HopCoffeeNode::untimedCompute() {
     isFeasible = true;
     isComplete = true;
     l = 1.;
-    if (action_index + 1 == (int)plan.size()) {
+    if (action_index + 1 == static_cast<int>(plan.size())) {
         isTerminal = true;
     }
 }

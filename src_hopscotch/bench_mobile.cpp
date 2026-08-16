@@ -92,7 +92,7 @@ static void dumpSolution(const std::string &path, uint64_t seed, const MobileSce
 int main(int argc, char **argv) {
     rai::initCmdLine(argc, argv);
 
-    uint64_t seed = (uint64_t)rai::getParameter<double>("seed", 0.);
+    uint64_t seed = static_cast<uint64_t>(rai::getParameter<double>("seed", 0.));
     double timeout_s = rai::getParameter<double>("timeout", 30.);
     int stepCap = rai::getParameter<int>("stepCap", 200000000);
     int nodeCap = rai::getParameter<int>("nodeCap", 4000000);
@@ -112,8 +112,8 @@ int main(int argc, char **argv) {
 
     printf("problem=mobile robot=pr2 seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
            "plan_len=%zu\n",
-        (unsigned long long)seed, result.solved ? 1 : 0, result.elapsed_s, result.steps,
-        result.nodes, planLen);
+        static_cast<unsigned long long>(seed), result.solved ? 1 : 0, result.elapsed_s,
+        result.steps, result.nodes, planLen);
 
     std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
     if (solutionNode && !dumpPath.empty()) {

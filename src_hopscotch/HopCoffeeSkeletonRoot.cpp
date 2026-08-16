@@ -15,7 +15,8 @@ namespace {
                 return i;
             }
         }
-        HALT("coffee item (kind=" << (int)kind << ", index=" << index << ") not found in scenario");
+        HALT("coffee item (kind=" << static_cast<int>(kind) << ", index=" << index
+                                  << ") not found in scenario");
     }
 
     // Domain text for coffee.
@@ -182,7 +183,7 @@ const std::vector<CoffeeAction> *HopCoffeeSkeletonRoot::getOrBuildSkeleton(int i
     if (totalSkeletonCount >= 0 && i >= totalSkeletonCount) {
         return nullptr;
     }
-    while ((int)skeletonPlans.size() <= i) {
+    while (static_cast<int>(skeletonPlans.size()) <= i) {
         skeletonPlans.push_back(std::make_unique<std::vector<CoffeeAction>>());
     }
     std::vector<CoffeeAction> &plan = *skeletonPlans[i];
@@ -190,11 +191,11 @@ const std::vector<CoffeeAction> *HopCoffeeSkeletonRoot::getOrBuildSkeleton(int i
         return &plan;
     }
 
-    while ((int)folAstar->solutions.N <= i && folAstar->queue.N > 0) {
+    while (static_cast<int>(folAstar->solutions.N) <= i && folAstar->queue.N > 0) {
         folAstar->step();
     }
-    if ((int)folAstar->solutions.N <= i) {
-        totalSkeletonCount = (int)folAstar->solutions.N;
+    if (static_cast<int>(folAstar->solutions.N) <= i) {
+        totalSkeletonCount = static_cast<int>(folAstar->solutions.N);
         return nullptr;
     }
     auto *sol = dynamic_cast<rai::FOL_World_State *>(folAstar->solutions(i));
@@ -206,7 +207,7 @@ const std::vector<CoffeeAction> *HopCoffeeSkeletonRoot::getOrBuildSkeleton(int i
         CoffeeActionType type = ruleNameToType(ruleName);
         auto objIndexOf = [&](int subIdx) -> size_t {
             std::string objName(d->parents(1 + subIdx)->key.p);
-            return (size_t)std::atoi(objName.c_str() + 3);
+            return static_cast<size_t>(std::atoi(objName.c_str() + 3));
         };
         size_t itemIndex = objIndexOf(0);
         size_t targetIndex = 0;
@@ -221,7 +222,8 @@ const std::vector<CoffeeAction> *HopCoffeeSkeletonRoot::getOrBuildSkeleton(int i
         static const char *NAMES[] = { "pick", "place", "fill", "pour", "scoop", "dump", "stir" };
         fprintf(stderr, "coffee skeleton[%d] (len %zu):", i, plan.size());
         for (const CoffeeAction &a : plan) {
-            fprintf(stderr, " %s(%zu,%zu)", NAMES[(int)a.type], a.item_index, a.target_index);
+            fprintf(stderr, " %s(%zu,%zu)", NAMES[static_cast<int>(a.type)], a.item_index,
+                a.target_index);
         }
         fprintf(stderr, "\n");
     }

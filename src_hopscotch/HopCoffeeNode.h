@@ -58,11 +58,11 @@ struct HopCoffeeNode : rai::ComputeNode {
 
     RobotTag robot;
 
-    virtual void untimedCompute();
-    virtual int getNumDecisions() { return isComplete && isFeasible && !isTerminal ? -1 : 0; }
-    virtual double branchingPenalty_child(int i);
-    virtual std::shared_ptr<ComputeNode> createNewChild(int i);
-    virtual void write(std::ostream &os) const;
+    void untimedCompute() override;
+    int getNumDecisions() override { return isComplete && isFeasible && !isTerminal ? -1 : 0; }
+    double branchingPenalty_child(int i) override;
+    std::shared_ptr<ComputeNode> createNewChild(int i) override;
+    void write(std::ostream &os) const override;
 };
 
 } // namespace hopct
