@@ -50,12 +50,6 @@ DecisionRule place {
     (on Obj Surf)
     }
 }
-
-DecisionRule move {
-  Hand
-  { (agent Hand) }
-  { }
-}
 )FOL";
 
 } // namespace
@@ -143,10 +137,6 @@ const std::vector<Action> *HopMobileSkeletonRoot::getOrBuildSkeleton(int i) {
 
     for (rai::Node *d : decisions) {
         std::string ruleName(d->parents(0)->key.p);
-        if (ruleName == "move") {
-            plan.push_back({ ActionType::Move, 0, 0 });
-            continue;
-        }
         std::string objName(d->parents(1)->key.p);
         size_t objIndex = static_cast<size_t>(std::atoi(objName.c_str() + 3));
         std::string surfName(d->parents(3)->key.p);
@@ -165,10 +155,8 @@ const std::vector<Action> *HopMobileSkeletonRoot::getOrBuildSkeleton(int i) {
         for (const Action &a : plan) {
             if (a.type == ActionType::Pick) {
                 fprintf(stderr, " pick(%zu)", a.object_index);
-            } else if (a.type == ActionType::Place) {
-                fprintf(stderr, " place(%zu,surf%zu)", a.object_index, a.surface_index);
             } else {
-                fprintf(stderr, " move()");
+                fprintf(stderr, " place(%zu,surf%zu)", a.object_index, a.surface_index);
             }
         }
         fprintf(stderr, "\n");

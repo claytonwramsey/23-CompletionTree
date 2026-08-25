@@ -61,9 +61,7 @@ static void dumpSolution(const std::string &path, uint64_t seed, const MobileSce
     for (size_t i = 0; i < chain.size(); i++) {
         HopMobileNode *node = chain[i];
         const Action &act = plan[node->action_index];
-        const char *actionName = act.type == ActionType::Pick ? "pick"
-            : act.type == ActionType::Place                   ? "place"
-                                                              : "move";
+        const char *actionName = act.type == ActionType::Pick ? "pick" : "place";
         os << "    {\"type\": \"" << actionName << "\", \"object_index\": " << act.object_index
            << ", \"base_pose\": ";
         writePose(os, node->base_pose);

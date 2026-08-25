@@ -72,71 +72,22 @@ void HopMobileNode::untimedCompute() {
     const Action &act = plan.at(action_index);
     const RobotVtable &rv = robot_vtable(RobotTag::Pr2);
 
-    // single-shot geometric move.
-    // Selects target poses close to the next action.
-    if (act.type == ActionType::Move) {
+    if (!motionStarted) {
         std::array<float, 4> baseBounds;
         hopcxx_mobile_base_bounds(&scenario, baseBounds.data());
-        const Action *nextPickTarget = nullptr;
-        for (size_t k = static_cast<size_t>(action_index) + 1;
-            k < plan.size() && plan[k].type != ActionType::Move; k++) {
-            if (plan[k].type == ActionType::Pick) {
-                nextPickTarget = &plan[k];
-                break;
-            }
-        }
-        CPose bq;
-        bool ok;
-        if (nextPickTarget) {
-            CPose targetPoint = (*poses)[nextPickTarget->object_index];
-            ok = sample_reachable_base(targetPoint, baseBounds.data(), &bq);
-        } else {
-            static thread_local std::mt19937 rng { std::random_device {}() };
-            std::uniform_real_distribution<float> xDist(baseBounds[0], baseBounds[2]);
-            std::uniform_real_distribution<float> yDist(baseBounds[1], baseBounds[3]);
-            std::uniform_real_distribution<float> yawDist(0.0f, 2.0f * std::numbers::pi_v<float>);
-            bq = pose_from_xyz_yaw(xDist(rng), yDist(rng), 0.0f, yawDist(rng));
-            ok = true;
-        }
-        if (ok) {
-            size_t excludeIndex
-                = held_object >= 0 ? static_cast<size_t>(held_object) : poses->size();
-            EnvPtr env = buildAttemptEnv(scenario, *poses, excludeIndex, bq);
-            if (held_object >= 0) {
-                float block_r = hopcxx_mobile_block_r(&scenario);
-                CPose heldRel = pose_inverse(grasp_offset);
-                ok = rv.validate_attached(q_arm, env.get(), block_r, heldRel);
-            } else {
-                ok = rv.validate(q_arm, env.get());
-            }
-        }
-        if (!ok) {
-            isFeasible = false;
-            isComplete = true;
-            return;
-        }
-        base_pose = bq;
-        isFeasible = true;
-        isComplete = true;
-        l = 1.;
-        if (action_index + 1 == static_cast<int>(plan.size())) {
-            isTerminal = true;
-        }
-        return;
-    }
-
-    if (!motionStarted) {
         CConfig qTarget;
         bool ok;
+        CPose bq;
 
         if (act.type == ActionType::Pick) {
             CPose objPose = (*poses)[act.object_index];
+            ok = sample_reachable_base(objPose, baseBounds.data(), &bq);
             CPose g = rv.sample_rel_pose();
-            CPose targetLocal = pose_mul(pose_inverse(base_pose), objPose);
+            CPose targetLocal = pose_mul(pose_inverse(bq), objPose);
             CPose eeTarget = pose_mul(targetLocal, g);
-            ok = rv.ik(eeTarget, &qTarget);
+            ok = ok && rv.ik(eeTarget, &qTarget);
             if (ok) {
-                EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index, base_pose);
+                EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index, bq);
                 ok = rv.validate(qTarget, env.get());
             }
             if (ok) {
@@ -152,12 +103,13 @@ void HopMobileNode::untimedCompute() {
             CTable surface = hopcxx_mobile_surface(&scenario, act.surface_index);
             CPose target = rv.sample_table_pose(surface); // world frame
             float block_r = hopcxx_mobile_block_r(&scenario);
-            CPose targetLocal = pose_mul(pose_inverse(base_pose), target);
+            ok = sample_reachable_base(target, baseBounds.data(), &bq);
+            CPose targetLocal = pose_mul(pose_inverse(bq), target);
             CPose eeTarget = pose_mul(targetLocal, grasp_offset);
             CPose heldRel = pose_inverse(grasp_offset);
-            ok = rv.ik(eeTarget, &qTarget);
+            ok = ok && rv.ik(eeTarget, &qTarget);
             if (ok) {
-                EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index, base_pose);
+                EnvPtr env = buildAttemptEnv(scenario, *poses, act.object_index, bq);
                 ok = rv.validate_attached(qTarget, env.get(), block_r, heldRel);
             }
             if (ok) {
@@ -175,7 +127,7 @@ void HopMobileNode::untimedCompute() {
         }
         nextQArm = qTarget;
         pendingQEnd = qTarget;
-        pendingBasePose = base_pose; // Pick/Place never change the base
+        pendingBasePose = bq; // Pick/Place always jointly sample a new base pose + grasp
         motionStarted = true;
     }
 
