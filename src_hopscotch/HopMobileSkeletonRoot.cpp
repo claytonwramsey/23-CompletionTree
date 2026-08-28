@@ -79,15 +79,19 @@ HopMobileSkeletonRoot::HopMobileSkeletonRoot(const MobileScenario &scenario)
     for (size_t j = 0; j < numSurfaces; j++) {
         L->addFact({ "surface", ("surf" + std::to_string(j)).c_str() });
     }
-    // Initial `on` facts. Estimate surfaces based on their height.
+    // Initial `on` facts. Several surfaces share a height, so prefer one whose
+    // footprint contains the object and fall back to the closest height.
     for (size_t i = 0; i < n; i++) {
         CPose p = hopcxx_mobile_object_pose(&scenario, i);
         size_t bestSurf = 0;
+        bool bestContains = false;
         float bestDist = INFINITY;
         for (size_t j = 0; j < numSurfaces; j++) {
             CTable t = hopcxx_mobile_surface(&scenario, j);
             float dist = std::fabs(p.z - (t.height + block_r));
-            if (dist < bestDist) {
+            bool contains = p.x >= t.x0 && p.x <= t.x1 && p.y >= t.y0 && p.y <= t.y1;
+            if (contains != bestContains ? contains : dist < bestDist) {
+                bestContains = contains;
                 bestDist = dist;
                 bestSurf = j;
             }
