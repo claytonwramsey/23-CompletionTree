@@ -23,7 +23,7 @@ LIBS += -L$(HOP_BENCH_CXX_LIB) -lhop_bench_cxx -Wl,-rpath,$(HOP_BENCH_CXX_LIB) -
 #   make MAIN=bench_hopscotch OUTPUT=x_hopscotch.exe
 #   make MAIN=bench_stacking OUTPUT=x_stacking.exe
 # `make all_bench` builds every driver at once.
-COMMON_SRCS = HopCommon.cpp HopPickPlaceNode.cpp HopSkeletonRoot.cpp HopStackingNode.cpp HopStackingSkeletonRoot.cpp HopMobileNode.cpp HopMobileSkeletonRoot.cpp HopCoffeeNode.cpp HopCoffeeSkeletonRoot.cpp
+COMMON_SRCS = HopCommon.cpp HopPickPlaceNode.cpp HopSkeletonRoot.cpp HopStackingNode.cpp HopStackingSkeletonRoot.cpp HopMobileNode.cpp HopMobileSkeletonRoot.cpp HopCoffeeNode.cpp HopCoffeeSkeletonRoot.cpp HopClrShuffleNode.cpp HopClrShuffleSkeletonRoot.cpp
 MAIN ?= bench_hopscotch
 OUTPUT ?= x_hopscotch.exe
 
@@ -39,7 +39,7 @@ OBJS = $(SRCS:%.cpp=%.o)
 # `all_bench` by default rather than building just that one driver).
 include $(BASE)/makeutils/generic.mk
 
-DRIVERS = bench_hopscotch:x_hopscotch.exe bench_stacking:x_stacking.exe bench_mobile:x_mobile.exe bench_coffee:x_coffee.exe
+DRIVERS = bench_hopscotch:x_hopscotch.exe bench_stacking:x_stacking.exe bench_mobile:x_mobile.exe bench_coffee:x_coffee.exe bench_clr_shuffle:x_clr_shuffle.exe
 
 all_bench: force
 	@for d in $(DRIVERS); do \
