@@ -14,6 +14,10 @@ struct TrialResult {
     double elapsed_s = 0.;
     unsigned steps = 0;
     unsigned nodes = 0;
+    // Why the search stopped. One of "solved", "timeout", "step_cap", "node_cap", or
+    // "exhausted". Only "timeout" means the wall-clock budget ran out; "exhausted" means the
+    // queue emptied, so the search ruled out every node it could reach.
+    const char *stop = "solved";
 };
 
 // Steps `astar` until a solution is found or one of the (wall-clock time /
@@ -32,18 +36,23 @@ inline TrialResult runSearch(rai::AStar &astar, double timeout_s, int stepCap, i
         r.elapsed_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         if (astar.solutions.N > 0) {
             r.solved = true;
+            r.stop = "solved";
             break;
         }
         if (r.elapsed_s >= timeout_s) {
+            r.stop = "timeout";
             break;
         }
         if (static_cast<int>(astar.steps) >= stepCap) {
+            r.stop = "step_cap";
             break;
         }
         if (static_cast<int>(astar.mem.N) >= nodeCap) {
+            r.stop = "node_cap";
             break;
         }
         if (!astar.queue.N) {
+            r.stop = "exhausted";
             break;
         }
     }

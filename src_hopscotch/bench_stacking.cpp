@@ -126,9 +126,9 @@ int main(int argc, char **argv) {
         : (root->skeletonPlans.empty() ? 0 : root->skeletonPlans[0]->size());
 
     printf("problem=stacking robot=%s seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
-           "plan_len=%zu\n",
+           "plan_len=%zu stop=%s\n",
         robotName.c_str(), static_cast<unsigned long long>(seed), result.solved ? 1 : 0,
-        result.elapsed_s, result.steps, result.nodes, planLen);
+        result.elapsed_s, result.steps, result.nodes, planLen, result.stop);
 
     if (solutionNode && !dumpPath.empty()) {
         dumpSolution(dumpPath, robotName, seed, *scenario, solutionNode->plan, solutionNode);
