@@ -52,9 +52,12 @@ namespace {
             }
             hopcxx_env_add_box(env.get(), poses[i], half);
         }
-        float lidHalf[3];
-        hopcxx_clr_shuffle_lid_half_extents(&scenario, lidHalf);
-        hopcxx_env_add_box(env.get(), hopcxx_clr_shuffle_lid_pose(&scenario, lidOpen), lidHalf);
+        for (size_t i = 0; i < hopcxx_clr_shuffle_num_lid_boxes(&scenario); i++) {
+            float lidHalf[3];
+            hopcxx_clr_shuffle_lid_box_half_extents(&scenario, i, lidHalf);
+            hopcxx_env_add_box(
+                env.get(), hopcxx_clr_shuffle_lid_box_pose(&scenario, i, lidOpen), lidHalf);
+        }
         return env;
     }
 
