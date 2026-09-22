@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
     ScenarioPtr<MobileScenario> scenario(hopcxx_make_mobile_scenario(seed), hopcxx_mobile_free);
 
     auto root = std::make_shared<HopMobileSkeletonRoot>(*scenario);
-    rai::AStar astar(root, rai::AStar::astar);
+    rai::AStar astar(root, hopct::parseSearchMode());
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);

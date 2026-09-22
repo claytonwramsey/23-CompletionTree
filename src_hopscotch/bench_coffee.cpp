@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     ScenarioPtr<CoffeeScenario> scenario(rawScenario, hopcxx_coffee_free);
 
     auto root = std::make_shared<HopCoffeeSkeletonRoot>(*scenario, robot);
-    rai::AStar astar(root, rai::AStar::astar);
+    rai::AStar astar(root, hopct::parseSearchMode());
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);

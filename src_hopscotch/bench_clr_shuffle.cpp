@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
 
     auto root = std::make_shared<HopClrShuffleSkeletonRoot>(*scenario);
     root->forcedSkeleton = rai::getParameter<int>("skeleton", -1);
-    rai::AStar astar(root, rai::AStar::astar);
+    rai::AStar astar(root, hopct::parseSearchMode());
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);

@@ -20,6 +20,21 @@ struct TrialResult {
     const char *stop = "solved";
 };
 
+// The search mode named by the `solver` parameter.
+// "ELS" runs effort level search, ordering the queue by each node's level.
+// "RoundRobin" runs the FIFO baseline, which spends compute on every open node in turn.
+// These are the two solvers the completion tree paper's own LGP experiment compares.
+inline rai::AStar::SearchMode parseSearchMode() {
+    std::string solver = rai::getParameter<rai::String>("solver", STRING("ELS")).p;
+    if (solver == "ELS") {
+        return rai::AStar::astar;
+    }
+    if (solver == "RoundRobin") {
+        return rai::AStar::FIFO;
+    }
+    HALT("unknown solver '" << solver << "' (this driver supports ELS/RoundRobin)");
+}
+
 // Steps `astar` until a solution is found or one of the (wall-clock time /
 // step count / node count) budgets is exhausted. See bench_hopscotch.cpp's
 // original comments for why both a step cap and a node cap exist alongside
