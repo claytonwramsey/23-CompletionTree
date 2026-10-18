@@ -1,9 +1,9 @@
 // Benchmark driver for the hopscotch-ported `mobile` domain (PR2) running
-// on rai's own completion-tree search (rai::AStar over hopct::HopMobileNode).
+// on rai's own completion-tree search (rai::AStar over the tree in HopChain.h).
 // See bench_hopscotch.cpp (the `pickplace`-domain analog) for the CLI/CSV
 // conventions this mirrors. No `-robot` flag: mobile is always PR2.
 #include "HopBenchDriver.h"
-#include "HopMobileNode.h"
+#include "HopMobileDomain.h"
 #include "HopMobileSkeletonRoot.h"
 #include <Core/util.h>
 #include <Search/AStar.h>
@@ -15,13 +15,7 @@
 using namespace hopct;
 
 static void dumpSolution(const std::string &path, uint64_t seed, const MobileScenario &scenario,
-    const std::vector<Action> &plan, HopMobileNode *solutionNode) {
-    std::vector<HopMobileNode *> chain;
-    for (HopMobileNode *n = solutionNode; n->action_index >= 0;
-        n = dynamic_cast<HopMobileNode *>(n->parent)) {
-        chain.push_back(n);
-    }
-    std::reverse(chain.begin(), chain.end());
+    const std::vector<Action> &plan, const std::vector<const HopMotionNode<MobileDomain> *> &chain) {
 
     std::ofstream os(path);
     os << "{\n";
@@ -59,12 +53,12 @@ static void dumpSolution(const std::string &path, uint64_t seed, const MobileSce
     os << ",\n";
     os << "  \"actions\": [\n";
     for (size_t i = 0; i < chain.size(); i++) {
-        HopMobileNode *node = chain[i];
-        const Action &act = plan[node->action_index];
+        const HopMotionNode<MobileDomain> *node = chain[i];
+        const Action &act = plan[node->t];
         const char *actionName = act.type == ActionType::Pick ? "pick" : "place";
         os << "    {\"type\": \"" << actionName << "\", \"object_index\": " << act.object_index
            << ", \"base_pose\": ";
-        writePose(os, node->base_pose);
+        writePose(os, node->keyframe().after.base_pose);
         os << ", \"trajectory\": [";
         for (size_t w = 0; w < node->trajectory.size(); w++) {
             if (w) {
@@ -75,7 +69,7 @@ static void dumpSolution(const std::string &path, uint64_t seed, const MobileSce
         os << "]";
         if (act.type == ActionType::Place) {
             os << ", \"placed_pose\": ";
-            writePose(os, (*node->poses)[act.object_index]);
+            writePose(os, (*node->keyframe().after.poses)[act.object_index]);
         }
         os << "}";
         if (i + 1 < chain.size()) {
@@ -102,20 +96,21 @@ int main(int argc, char **argv) {
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);
-    HopMobileNode *solutionNode
-        = result.solved ? dynamic_cast<HopMobileNode *>(astar.solutions(0)) : nullptr;
-    size_t planLen = solutionNode
-        ? solutionNode->plan.size()
+    auto *solution
+        = result.solved ? dynamic_cast<HopMotionNode<MobileDomain> *>(astar.solutions(0)) : nullptr;
+    const std::vector<Action> *solutionPlan = solution ? &solution->ways.plan() : nullptr;
+    size_t planLen = solutionPlan
+        ? solutionPlan->size()
         : (root->skeletonPlans.empty() ? 0 : root->skeletonPlans[0]->size());
 
     printf("problem=mobile robot=pr2 seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
-           "plan_len=%zu stop=%s\n",
+           "plan_len=%zu stop=%s skeleton_s=%.4f\n",
         static_cast<unsigned long long>(seed), result.solved ? 1 : 0, result.elapsed_s,
-        result.steps, result.nodes, planLen, result.stop);
+        result.steps, result.nodes, planLen, result.stop, hopct::skeletonSeconds);
 
     std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
-    if (solutionNode && !dumpPath.empty()) {
-        dumpSolution(dumpPath, seed, *scenario, solutionNode->plan, solutionNode);
+    if (solutionPlan && !dumpPath.empty()) {
+        dumpSolution(dumpPath, seed, *scenario, *solutionPlan, motionChain(solution));
     }
 
     return 0;

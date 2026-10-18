@@ -1,8 +1,8 @@
 #pragma once
-// A rai::ComputeNode implementation of hopscotch's `clr_shuffle` domain.
+// Hopscotch's CLR shuffle domain, a UR10e moving CTBs in a lidded rig, for the completion tree in HopChain.h.
+#include "HopChain.h"
 #include "HopCommon.h"
 #include "hop_bench_cxx.h"
-#include <Search/ComputeNode.h>
 #include <memory>
 #include <vector>
 
@@ -36,37 +36,27 @@ private:
     int cumulativeSamples = 0;
 };
 
-struct HopClrShuffleNode : rai::ComputeNode {
-    const ClrShuffleScenario &scenario; // borrowed; owned by the root/driver
-    const std::vector<ClrAction> &plan; // borrowed
-    int action_index; // -1 at the root
+// `held_object` in its State indexes the scenario's CTB list.
+struct ClrDomain {
+    struct Context {
+        const ClrShuffleScenario *scenario;
+    };
+    using Action = ClrAction;
+    struct State : ArmState {
+        bool lid_open = false;
+    };
+    struct Keyframe {
+        State after;
+        bool hasHeld = false;
+        CPose heldRel = CPose { 0, 0, 0, 0, 0, 0, 1 };
+    };
+    using MotionState = ClrMotionPlanState;
 
-    CConfig q_arm;
-    int64_t held_ctb = -1;
-    CPose grasp_offset = CPose { 0, 0, 0, 0, 0, 0, 1 };
-    std::shared_ptr<std::vector<CPose>> poses; // per CTB index
-    bool lid_open = false;
-
-    bool motionStarted = false;
-    ClrMotionPlanState motionState;
-    CConfig pendingQEnd {};
-    CPose pendingHeldRel {};
-    bool pendingHasHeld = false;
-    CConfig nextQArm {};
-    CPose nextGraspOffset {};
-    CPose nextPlacedPose {};
-
-    std::vector<CConfig> trajectory;
-
-    HopClrShuffleNode(const ClrShuffleScenario &scenario, const std::vector<ClrAction> &plan,
-        rai::ComputeNode *parent = nullptr);
-    HopClrShuffleNode(HopClrShuffleNode &parent, int childIndex);
-
-    void untimedCompute() override;
-    int getNumDecisions() override { return isComplete && isFeasible && !isTerminal ? -1 : 0; }
-    double branchingPenalty_child(int i) override;
-    std::shared_ptr<ComputeNode> createNewChild(int i) override;
-    void write(std::ostream &os) const override;
+    static State initialState(const Context &ctx);
+    static bool drawKeyframe(const Context &ctx, const State &before, const Action &act,
+        const Action *next, size_t k, Keyframe &out);
+    static int motionStep(const Context &ctx, const State &before, const Action &act,
+        const Keyframe &kf, size_t k, MotionState &motion, float *buf, size_t cap, size_t *len);
 };
 
 } // namespace hopct

@@ -1,10 +1,10 @@
 // Benchmark driver for the hopscotch-ported `clr_shuffle` domain running on rai's own
-// completion-tree search, rai::AStar over hopct::HopClrShuffleNode. Mirrors the CLI/CSV
+// completion-tree search, rai::AStar over the tree in HopChain.h. Mirrors the CLI/CSV
 // conventions of hopscotch's and the PDDLStream port's benchmark harnesses, one trial per
 // process with a wall-clock timeout and solved/elapsed_s/steps/nodes columns, so the output
 // merges into the same comparison pipeline.
 #include "HopBenchDriver.h"
-#include "HopClrShuffleNode.h"
+#include "HopClrShuffleDomain.h"
 #include "HopClrShuffleSkeletonRoot.h"
 #include <Core/util.h>
 #include <Search/AStar.h>
@@ -19,13 +19,7 @@ using namespace hopct;
 // the trajectory plus which CTB moved where.
 static void dumpSolution(const std::string &path, uint64_t seed,
     const ClrShuffleScenario &scenario, const std::vector<ClrAction> &plan,
-    HopClrShuffleNode *solutionNode) {
-    std::vector<HopClrShuffleNode *> chain;
-    for (HopClrShuffleNode *n = solutionNode; n->action_index >= 0;
-        n = dynamic_cast<HopClrShuffleNode *>(n->parent)) {
-        chain.push_back(n);
-    }
-    std::reverse(chain.begin(), chain.end());
+    const std::vector<const HopMotionNode<ClrDomain> *> &chain) {
 
     std::ofstream os(path);
     os << "{\n";
@@ -52,8 +46,8 @@ static void dumpSolution(const std::string &path, uint64_t seed,
     os << "  \"actions\": [\n";
     static const char *NAMES[] = { "pick", "place", "open_lid", "close_lid" };
     for (size_t i = 0; i < chain.size(); i++) {
-        HopClrShuffleNode *node = chain[i];
-        const ClrAction &act = plan[node->action_index];
+        const HopMotionNode<ClrDomain> *node = chain[i];
+        const ClrAction &act = plan[node->t];
         os << "    {\"type\": \"" << NAMES[static_cast<int>(act.type)]
            << "\", \"ctb_index\": " << act.ctb_index
            << ", \"surface_index\": " << act.surface_index << ", \"trajectory\": [";
@@ -66,7 +60,7 @@ static void dumpSolution(const std::string &path, uint64_t seed,
         os << "]";
         if (act.type == ClrActionType::Place) {
             os << ", \"placed_pose\": ";
-            writePose(os, (*node->poses)[act.ctb_index]);
+            writePose(os, (*node->keyframe().after.poses)[act.ctb_index]);
         }
         os << "}";
         if (i + 1 < chain.size()) {
@@ -100,24 +94,25 @@ int main(int argc, char **argv) {
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);
-    HopClrShuffleNode *solutionNode
-        = result.solved ? dynamic_cast<HopClrShuffleNode *>(astar.solutions(0)) : nullptr;
-    size_t planLen = solutionNode
-        ? solutionNode->plan.size()
+    auto *solution
+        = result.solved ? dynamic_cast<HopMotionNode<ClrDomain> *>(astar.solutions(0)) : nullptr;
+    const std::vector<ClrAction> *solutionPlan = solution ? &solution->ways.plan() : nullptr;
+    size_t planLen = solutionPlan
+        ? solutionPlan->size()
         : (root->skeletonPlans.empty() ? 0 : root->skeletonPlans[0]->size());
 
     printf("problem=clr_shuffle robot=ur10e seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
-           "plan_len=%zu stop=%s\n",
+           "plan_len=%zu stop=%s skeleton_s=%.4f\n",
         static_cast<unsigned long long>(seed), result.solved ? 1 : 0, result.elapsed_s,
-        result.steps, result.nodes, planLen, result.stop);
+        result.steps, result.nodes, planLen, result.stop, hopct::skeletonSeconds);
 
-    if (solutionNode && !dumpPath.empty()) {
-        dumpSolution(dumpPath, seed, *scenario, solutionNode->plan, solutionNode);
+    if (solutionPlan && !dumpPath.empty()) {
+        dumpSolution(dumpPath, seed, *scenario, *solutionPlan, motionChain(solution));
     }
 
     if (rai::getParameter<bool>("diagStats", false)) {
         static const char *NAMES[] = { "pick", "place", "open", "close" };
-        const std::vector<ClrAction> *diagPlan = solutionNode ? &solutionNode->plan
+        const std::vector<ClrAction> *diagPlan = solutionPlan ? solutionPlan
             : (root->skeletonPlans.empty() ? nullptr : root->skeletonPlans[0].get());
         printf("-- per-action diagnostic (attempts / ikOk / validateOk / motionOk):\n");
         for (size_t i = 0; i < HopDiagStats::MAX_ACTIONS && diagStats().attempts[i] > 0; i++) {

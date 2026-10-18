@@ -1,6 +1,5 @@
 #pragma once
-// Shared types across all hopscotch-ported completion-tree domains
-// (HopPickPlaceNode, HopStackingNode, ...).
+// Shared types for every hopscotch domain ported to the completion tree.
 #include "hop_bench_cxx.h"
 #include "hop_robot_vtable.h"
 #include <Core/util.h>
@@ -22,8 +21,14 @@ inline EnvPtr wrapEnv(Environment *e) { return EnvPtr(e, hopcxx_env_free); }
 double hopBranchingPenalty(int i);
 
 struct HopGlobalInfo {
+    // Skeletons widen with (i/w0)^wP and waypoint seeds with (i/waypoint_w0)^wP, matching the
+    // reference's skeleton_w0 and waypoint_w0.
     RAI_PARAM("Hop/", double, w0, 1.)
     RAI_PARAM("Hop/", double, wP, 2.)
+    RAI_PARAM("Hop/", double, waypoint_w0, 10.)
+    // A waypoint seed gives up after this many failed draws in a row on one keyframe, which
+    // matches the reference's waypointStopEvals.
+    RAI_PARAM("Hop/", int, waypointMaxDraws, 1000)
     RAI_PARAM("Hop/", int, maxTrajWaypoints, 512)
     // Motion planning is a genuinely incremental search (see MotionPlanState),
     // not a single-shot call -- these two control how it's chunked into

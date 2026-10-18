@@ -5,9 +5,22 @@
 #include <Core/util.h>
 #include <Search/AStar.h>
 #include <chrono>
+#include <cstdio>
 #include <ostream>
 
 namespace hopct {
+
+// Wall-clock seconds the symbolic skeleton search has taken over the run, which every
+// SkeletonRoot adds to through SkeletonTimer, so a report can separate task planning time.
+inline double skeletonSeconds = 0.;
+
+// Adds the time from its construction to its destruction to `skeletonSeconds`.
+struct SkeletonTimer {
+    std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    ~SkeletonTimer() {
+        skeletonSeconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    }
+};
 
 struct TrialResult {
     bool solved = false;

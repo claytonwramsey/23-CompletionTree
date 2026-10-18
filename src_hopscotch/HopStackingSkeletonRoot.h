@@ -1,7 +1,7 @@
 #pragma once
 // A rai::ComputeNode that gives the completion tree task-level search for the `stacking` problem.
 #include "HopCommon.h"
-#include "HopStackingNode.h"
+#include "HopStackingDomain.h"
 #include <Logic/folWorld.h>
 #include <Search/AStar.h>
 #include <Search/ComputeNode.h>

@@ -1,9 +1,9 @@
 // Benchmark driver for the hopscotch-ported `stacking` domain running on
-// rai's own completion-tree search (rai::AStar over hopct::HopStackingNode).
+// rai's own completion-tree search (rai::AStar over the tree in HopChain.h).
 // See bench_hopscotch.cpp (the `pickplace`-domain analog) for the CLI/CSV
 // conventions this mirrors.
 #include "HopBenchDriver.h"
-#include "HopStackingNode.h"
+#include "HopStackingDomain.h"
 #include "HopStackingSkeletonRoot.h"
 #include <Core/util.h>
 #include <Search/AStar.h>
@@ -32,13 +32,7 @@ static RobotTag parseRobot(const std::string &s) {
 
 static void dumpSolution(const std::string &path, const std::string &robotName, uint64_t seed,
     const StackingScenario &scenario, const std::vector<Action> &plan,
-    HopStackingNode *solutionNode) {
-    std::vector<HopStackingNode *> chain;
-    for (HopStackingNode *n = solutionNode; n->action_index >= 0;
-        n = dynamic_cast<HopStackingNode *>(n->parent)) {
-        chain.push_back(n);
-    }
-    std::reverse(chain.begin(), chain.end());
+    const std::vector<const HopMotionNode<StackingDomain> *> &chain) {
 
     std::ofstream os(path);
     os << "{\n";
@@ -65,8 +59,8 @@ static void dumpSolution(const std::string &path, const std::string &robotName, 
     os << ",\n";
     os << "  \"actions\": [\n";
     for (size_t i = 0; i < chain.size(); i++) {
-        HopStackingNode *node = chain[i];
-        const Action &act = plan[node->action_index];
+        const HopMotionNode<StackingDomain> *node = chain[i];
+        const Action &act = plan[node->t];
         os << "    {\"type\": \"" << (act.type == ActionType::Pick ? "pick" : "place")
            << "\", \"object_index\": " << act.object_index << ", \"trajectory\": [";
         for (size_t w = 0; w < node->trajectory.size(); w++) {
@@ -78,7 +72,7 @@ static void dumpSolution(const std::string &path, const std::string &robotName, 
         os << "]";
         if (act.type == ActionType::Place) {
             os << ", \"placed_pose\": ";
-            writePose(os, (*node->poses)[act.object_index]);
+            writePose(os, (*node->keyframe().after.poses)[act.object_index]);
         }
         os << "}";
         if (i + 1 < chain.size()) {
@@ -119,19 +113,20 @@ int main(int argc, char **argv) {
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);
-    HopStackingNode *solutionNode
-        = result.solved ? dynamic_cast<HopStackingNode *>(astar.solutions(0)) : nullptr;
-    size_t planLen = solutionNode
-        ? solutionNode->plan.size()
+    auto *solution
+        = result.solved ? dynamic_cast<HopMotionNode<StackingDomain> *>(astar.solutions(0)) : nullptr;
+    const std::vector<Action> *solutionPlan = solution ? &solution->ways.plan() : nullptr;
+    size_t planLen = solutionPlan
+        ? solutionPlan->size()
         : (root->skeletonPlans.empty() ? 0 : root->skeletonPlans[0]->size());
 
     printf("problem=stacking robot=%s seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
-           "plan_len=%zu stop=%s\n",
+           "plan_len=%zu stop=%s skeleton_s=%.4f\n",
         robotName.c_str(), static_cast<unsigned long long>(seed), result.solved ? 1 : 0,
-        result.elapsed_s, result.steps, result.nodes, planLen, result.stop);
+        result.elapsed_s, result.steps, result.nodes, planLen, result.stop, hopct::skeletonSeconds);
 
-    if (solutionNode && !dumpPath.empty()) {
-        dumpSolution(dumpPath, robotName, seed, *scenario, solutionNode->plan, solutionNode);
+    if (solutionPlan && !dumpPath.empty()) {
+        dumpSolution(dumpPath, robotName, seed, *scenario, *solutionPlan, motionChain(solution));
     }
 
     return 0;

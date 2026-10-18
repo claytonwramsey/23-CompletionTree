@@ -1,9 +1,9 @@
 // Benchmark driver for the hopscotch-ported `coffee` domain running on
-// rai's own completion-tree search (rai::AStar over hopct::HopCoffeeNode).
+// rai's own completion-tree search (rai::AStar over the tree in HopChain.h).
 // See bench_hopscotch.cpp (the `pickplace`-domain analog) for the CLI/CSV
 // conventions this mirrors.
 #include "HopBenchDriver.h"
-#include "HopCoffeeNode.h"
+#include "HopCoffeeDomain.h"
 #include "HopCoffeeSkeletonRoot.h"
 #include <Core/util.h>
 #include <Search/AStar.h>
@@ -52,13 +52,7 @@ static const char *actionName(CoffeeActionType t) {
 
 static void dumpSolution(const std::string &path, const std::string &robotName, uint64_t seed,
     const CoffeeScenario &scenario, const std::vector<CoffeeAction> &plan,
-    HopCoffeeNode *solutionNode) {
-    std::vector<HopCoffeeNode *> chain;
-    for (HopCoffeeNode *n = solutionNode; n->action_index >= 0;
-        n = dynamic_cast<HopCoffeeNode *>(n->parent)) {
-        chain.push_back(n);
-    }
-    std::reverse(chain.begin(), chain.end());
+    const std::vector<const HopMotionNode<CoffeeDomain> *> &chain) {
 
     std::ofstream os(path);
     os << "{\n";
@@ -86,8 +80,8 @@ static void dumpSolution(const std::string &path, const std::string &robotName, 
     os << ",\n";
     os << "  \"actions\": [\n";
     for (size_t i = 0; i < chain.size(); i++) {
-        HopCoffeeNode *node = chain[i];
-        const CoffeeAction &act = plan[node->action_index];
+        const HopMotionNode<CoffeeDomain> *node = chain[i];
+        const CoffeeAction &act = plan[node->t];
         os << "    {\"type\": \"" << actionName(act.type)
            << "\", \"item_index\": " << act.item_index << ", \"trajectory\": [";
         for (size_t w = 0; w < node->trajectory.size(); w++) {
@@ -99,7 +93,7 @@ static void dumpSolution(const std::string &path, const std::string &robotName, 
         os << "]";
         if (act.type == CoffeeActionType::Place) {
             os << ", \"placed_pose\": ";
-            writePose(os, (*node->poses)[act.item_index]);
+            writePose(os, (*node->keyframe().after.poses)[act.item_index]);
         }
         os << "}";
         if (i + 1 < chain.size()) {
@@ -139,24 +133,25 @@ int main(int argc, char **argv) {
     astar.verbose = 0;
 
     TrialResult result = runSearch(astar, timeout_s, stepCap, nodeCap);
-    HopCoffeeNode *solutionNode
-        = result.solved ? dynamic_cast<HopCoffeeNode *>(astar.solutions(0)) : nullptr;
-    size_t planLen = solutionNode
-        ? solutionNode->plan.size()
+    auto *solution
+        = result.solved ? dynamic_cast<HopMotionNode<CoffeeDomain> *>(astar.solutions(0)) : nullptr;
+    const std::vector<CoffeeAction> *solutionPlan = solution ? &solution->ways.plan() : nullptr;
+    size_t planLen = solutionPlan
+        ? solutionPlan->size()
         : (root->skeletonPlans.empty() ? 0 : root->skeletonPlans[0]->size());
 
     printf("problem=coffee robot=%s seed=%llu solved=%d elapsed_s=%.4f steps=%u nodes=%u "
-           "plan_len=%zu stop=%s\n",
+           "plan_len=%zu stop=%s skeleton_s=%.4f\n",
         robotName.c_str(), static_cast<unsigned long long>(seed), result.solved ? 1 : 0,
-        result.elapsed_s, result.steps, result.nodes, planLen, result.stop);
+        result.elapsed_s, result.steps, result.nodes, planLen, result.stop, hopct::skeletonSeconds);
 
     std::string dumpPath = rai::getParameter<rai::String>("dumpSolution", STRING("")).p;
-    if (solutionNode && !dumpPath.empty()) {
-        dumpSolution(dumpPath, robotName, seed, *scenario, solutionNode->plan, solutionNode);
+    if (solutionPlan && !dumpPath.empty()) {
+        dumpSolution(dumpPath, robotName, seed, *scenario, *solutionPlan, motionChain(solution));
     }
 
-    if (solutionNode && rai::getParameter<bool>("diagStats", false)) {
-        const std::vector<CoffeeAction> &diagPlan = solutionNode->plan;
+    if (solutionPlan && rai::getParameter<bool>("diagStats", false)) {
+        const std::vector<CoffeeAction> &diagPlan = *solutionPlan;
         printf("-- per-action diagnostic (attempts / ikOk / validateOk / motionOk):\n");
         for (size_t i = 0; i < diagPlan.size(); i++) {
             printf("  [%zu] %-6s item=%zu: attempts=%lld ikOk=%lld validateOk=%lld motionOk=%lld\n",

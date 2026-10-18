@@ -1,3 +1,4 @@
+#include "HopBenchDriver.h"
 #include "HopCoffeeSkeletonRoot.h"
 #include <Core/graph.h>
 #include <cstdlib>
@@ -175,6 +176,7 @@ HopCoffeeSkeletonRoot::HopCoffeeSkeletonRoot(const CoffeeScenario &scenario, Rob
     folAstar
         = std::make_shared<rai::AStar>(std::make_shared<rai::FOL_World_State>(*L, nullptr, false));
     folAstar->verbose = 0;
+
 }
 
 double HopCoffeeSkeletonRoot::branchingPenalty_child(int i) { return hopBranchingPenalty(i); }
@@ -191,8 +193,11 @@ const std::vector<CoffeeAction> *HopCoffeeSkeletonRoot::getOrBuildSkeleton(int i
         return &plan;
     }
 
-    while (static_cast<int>(folAstar->solutions.N) <= i && folAstar->queue.N > 0) {
-        folAstar->step();
+    {
+        SkeletonTimer timer;
+        while (static_cast<int>(folAstar->solutions.N) <= i && folAstar->queue.N > 0) {
+            folAstar->step();
+        }
     }
     if (static_cast<int>(folAstar->solutions.N) <= i) {
         totalSkeletonCount = static_cast<int>(folAstar->solutions.N);
@@ -231,14 +236,17 @@ const std::vector<CoffeeAction> *HopCoffeeSkeletonRoot::getOrBuildSkeleton(int i
 }
 
 std::shared_ptr<rai::ComputeNode> HopCoffeeSkeletonRoot::createNewChild(int i) {
+    double searchStart = rai::cpuTime();
     const std::vector<CoffeeAction> *plan = getOrBuildSkeleton(i);
-    if (!plan) {
-        static const std::vector<CoffeeAction> EMPTY_PLAN;
-        auto dead = std::make_shared<HopCoffeeNode>(scenario, EMPTY_PLAN, robot, this);
-        dead->isFeasible = false;
-        return dead;
-    }
-    return std::make_shared<HopCoffeeNode>(scenario, *plan, robot, this);
+    double searched = rai::cpuTime() - searchStart;
+    // A skeleton index past the end of the symbolic search space yields an infeasible node.
+    static const std::vector<CoffeeAction> EMPTY_PLAN;
+    auto node = std::make_shared<HopSkeletonNode<CoffeeDomain>>(
+        CoffeeDomain::Context { &scenario, robot }, plan ? *plan : EMPTY_PLAN, this, i);
+    // The reference times the symbolic search inside its skeleton node's computation, so the
+    // search's CPU time counts toward the effort the skeleton's descendants inherit.
+    node->c += searched;
+    return node;
 }
 
 } // namespace hopct

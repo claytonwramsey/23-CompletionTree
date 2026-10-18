@@ -1,7 +1,7 @@
 #pragma once
 // A rai::ComputeNode that gives the completion tree task search for the mobile problem.
 #include "HopCommon.h"
-#include "HopMobileNode.h"
+#include "HopMobileDomain.h"
 #include <Logic/folWorld.h>
 #include <Search/AStar.h>
 #include <Search/ComputeNode.h>

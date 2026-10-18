@@ -1,7 +1,7 @@
 #pragma once
 // Task search for pick-place problems.
 #include "HopCommon.h"
-#include "HopPickPlaceNode.h"
+#include "HopPickPlaceDomain.h"
 #include <Logic/folWorld.h>
 #include <Search/AStar.h>
 #include <Search/ComputeNode.h>

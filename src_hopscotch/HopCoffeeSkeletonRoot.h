@@ -1,7 +1,7 @@
 #pragma once
 // A rai::ComputeNode that gives the completion tree task-level
 // search for the `coffee` problem.
-#include "HopCoffeeNode.h"
+#include "HopCoffeeDomain.h"
 #include "HopCommon.h"
 #include <Logic/folWorld.h>
 #include <Search/AStar.h>

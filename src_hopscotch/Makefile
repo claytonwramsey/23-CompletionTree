@@ -23,7 +23,7 @@ LIBS += -L$(HOP_BENCH_CXX_LIB) -lhop_bench_cxx -Wl,-rpath,$(HOP_BENCH_CXX_LIB) -
 #   make MAIN=bench_hopscotch OUTPUT=x_hopscotch.exe
 #   make MAIN=bench_stacking OUTPUT=x_stacking.exe
 # `make all_bench` builds every driver at once.
-COMMON_SRCS = HopCommon.cpp HopPickPlaceNode.cpp HopSkeletonRoot.cpp HopStackingNode.cpp HopStackingSkeletonRoot.cpp HopMobileNode.cpp HopMobileSkeletonRoot.cpp HopCoffeeNode.cpp HopCoffeeSkeletonRoot.cpp HopClrShuffleNode.cpp HopClrShuffleSkeletonRoot.cpp
+COMMON_SRCS = HopCommon.cpp HopPickPlaceDomain.cpp HopSkeletonRoot.cpp HopStackingDomain.cpp HopStackingSkeletonRoot.cpp HopMobileDomain.cpp HopMobileSkeletonRoot.cpp HopCoffeeDomain.cpp HopCoffeeSkeletonRoot.cpp HopClrShuffleDomain.cpp HopClrShuffleSkeletonRoot.cpp
 MAIN ?= bench_hopscotch
 OUTPUT ?= x_hopscotch.exe
 

@@ -131,3 +131,11 @@ motion planning, grasp sampling, collision) through a small C ABI crate. See
 `hopscotch/examples/pddlstream/README.md`'s "Third system: 23-CompletionTree" section for the
 full setup, build, and benchmark-reproduction instructions (it assumes steps 1-5 above are
 already done).
+
+The port builds the same completion tree as the paper's TAMP experiments, in `src_hopscotch/HopChain.h`.
+A skeleton node branches infinitely over waypoint seeds.
+A waypoint seed draws every keyframe of its skeleton in plan order, one draw per compute step.
+A failing keyframe is redrawn up to `Hop/waypointMaxDraws` times in a row, after which the seed is infeasible.
+Below a complete seed hangs a chain of motion nodes, one resumable RRT per action, and a failed motion kills the seed.
+Skeleton search time is charged to the skeleton node, as the reference charges it.
+Hopscotch has no trajectory optimizer, so the reference's final path optimization node has no counterpart here and the last motion node is the terminal.

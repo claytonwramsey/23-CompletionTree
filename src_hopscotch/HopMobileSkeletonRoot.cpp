@@ -1,3 +1,4 @@
+#include "HopBenchDriver.h"
 #include "HopMobileSkeletonRoot.h"
 #include <Core/graph.h>
 #include <cmath>
@@ -111,6 +112,7 @@ HopMobileSkeletonRoot::HopMobileSkeletonRoot(const MobileScenario &scenario)
     folAstar
         = std::make_shared<rai::AStar>(std::make_shared<rai::FOL_World_State>(*L, nullptr, false));
     folAstar->verbose = 0;
+
 }
 
 double HopMobileSkeletonRoot::branchingPenalty_child(int i) { return hopBranchingPenalty(i); }
@@ -127,8 +129,11 @@ const std::vector<Action> *HopMobileSkeletonRoot::getOrBuildSkeleton(int i) {
         return &plan;
     }
 
-    while (static_cast<int>(folAstar->solutions.N) <= i && folAstar->queue.N > 0) {
-        folAstar->step();
+    {
+        SkeletonTimer timer;
+        while (static_cast<int>(folAstar->solutions.N) <= i && folAstar->queue.N > 0) {
+            folAstar->step();
+        }
     }
     if (static_cast<int>(folAstar->solutions.N) <= i) {
         totalSkeletonCount = static_cast<int>(folAstar->solutions.N);
@@ -169,14 +174,17 @@ const std::vector<Action> *HopMobileSkeletonRoot::getOrBuildSkeleton(int i) {
 }
 
 std::shared_ptr<rai::ComputeNode> HopMobileSkeletonRoot::createNewChild(int i) {
+    double searchStart = rai::cpuTime();
     const std::vector<Action> *plan = getOrBuildSkeleton(i);
-    if (!plan) {
-        static const std::vector<Action> EMPTY_PLAN;
-        auto dead = std::make_shared<HopMobileNode>(scenario, EMPTY_PLAN, this);
-        dead->isFeasible = false;
-        return dead;
-    }
-    return std::make_shared<HopMobileNode>(scenario, *plan, this);
+    double searched = rai::cpuTime() - searchStart;
+    // A skeleton index past the end of the symbolic search space yields an infeasible node.
+    static const std::vector<Action> EMPTY_PLAN;
+    auto node = std::make_shared<HopSkeletonNode<MobileDomain>>(
+        MobileDomain::Context { &scenario }, plan ? *plan : EMPTY_PLAN, this, i);
+    // The reference times the symbolic search inside its skeleton node's computation, so the
+    // search's CPU time counts toward the effort the skeleton's descendants inherit.
+    node->c += searched;
+    return node;
 }
 
 } // namespace hopct

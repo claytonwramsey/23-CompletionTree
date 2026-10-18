@@ -143,3 +143,7 @@ srv_gen
 *Feedback.msg
 *Goal.msg
 *Result.msg
+
+# no-root build dependencies and the robot models the upstream LGP problems load
+/.deps/
+/rai-robotModels/
