@@ -114,10 +114,20 @@ HopSkeletonRoot::HopSkeletonRoot(const PickPlaceScenario &scenario, RobotTag rob
         CHECK(targetIndex < n, "target_block id not found among scenario objects");
         L->addTerminalRule(("(held obj" + std::to_string(targetIndex) + ")").c_str());
     } else {
-        // packing: goal is "every object on goal_surface" -- a conjunction
-        // of one `on` literal per object, all required by the same rule.
+        // packing: goal is "every goal block on goal_surface", a conjunction
+        // of one `on` literal per goal block, all required by the same rule.
         std::string literals;
-        for (size_t i = 0; i < n; i++) {
+        size_t numGoal = hopcxx_pickplace_num_goal_blocks(&scenario);
+        for (size_t k = 0; k < numGoal; k++) {
+            uint64_t goalId = hopcxx_pickplace_goal_block(&scenario, k);
+            size_t i = n;
+            for (size_t j = 0; j < n; j++) {
+                if (hopcxx_pickplace_object_id(&scenario, j) == goalId) {
+                    i = j;
+                    break;
+                }
+            }
+            CHECK(i < n, "goal block id not found among scenario objects");
             literals
                 += "(on obj" + std::to_string(i) + " surf" + std::to_string(goalSurface) + ") ";
         }
