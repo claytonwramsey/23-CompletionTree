@@ -7,18 +7,6 @@
 
 namespace hopct {
 
-static size_t findItem(const CoffeeScenario &scenario, uint8_t kind, uint64_t index) {
-    size_t n = hopcxx_coffee_num_objects(&scenario);
-    for (size_t i = 0; i < n; i++) {
-        if (hopcxx_coffee_object_kind(&scenario, i) == kind
-            && hopcxx_coffee_object_index(&scenario, i) == index) {
-            return i;
-        }
-    }
-    HALT("coffee item (kind=" << static_cast<int>(kind) << ", index=" << index
-                              << ") not found in scenario");
-}
-
 static EnvPtr buildAttemptEnv(
     const CoffeeScenario &scenario, const std::vector<CPose> &poses, size_t movingIndex) {
     EnvPtr env = wrapEnv(hopcxx_env_clone(hopcxx_coffee_env(&scenario)));
@@ -55,9 +43,13 @@ CoffeeDomain::State CoffeeDomain::initialState(const Context &ctx) {
     }
     s.poses = poses;
     auto logic = std::make_shared<std::vector<CupLogic>>(n);
-    (*logic)[findItem(*ctx.scenario, 0, 1)].cream = true;
-    (*logic)[findItem(*ctx.scenario, 0, 2)].sugar = true;
-    (*logic)[findItem(*ctx.scenario, 0, 3)].sugar = true;
+    // Each cup starts with the ingredients that the scenario's contents bitmask lists.
+    for (size_t i = 0; i < n; i++) {
+        uint8_t contents = hopcxx_coffee_object_contents(ctx.scenario, i);
+        (*logic)[i].coffee = contents & 1;
+        (*logic)[i].sugar = contents & 2;
+        (*logic)[i].cream = contents & 4;
+    }
     s.cupLogic = logic;
     return s;
 }

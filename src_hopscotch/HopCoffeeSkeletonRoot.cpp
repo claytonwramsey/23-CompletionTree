@@ -147,11 +147,7 @@ HopCoffeeSkeletonRoot::HopCoffeeSkeletonRoot(const CoffeeScenario &scenario, Rob
     isTerminal = false;
 
     size_t n = hopcxx_coffee_num_objects(&scenario);
-    size_t cup0 = findItem(scenario, 0, 0);
-    size_t creamCup = findItem(scenario, 0, 1);
-    size_t sugarCup0 = findItem(scenario, 0, 2);
-    size_t sugarCup1 = findItem(scenario, 0, 3);
-    size_t spoon = findItem(scenario, 1, 0);
+    size_t target = findItem(scenario, 0, hopcxx_coffee_target_cup(&scenario));
 
     std::istringstream domainStream(COFFEE_DOMAIN_TEXT);
     rai::Graph kb(domainStream);
@@ -162,15 +158,26 @@ HopCoffeeSkeletonRoot::HopCoffeeSkeletonRoot(const CoffeeScenario &scenario, Rob
     for (size_t i = 0; i < n; i++) {
         L->addObject(("obj" + std::to_string(i)).c_str());
     }
-    L->addFact({ "cup", ("obj" + std::to_string(cup0)).c_str() });
-    L->addFact({ "cup", ("obj" + std::to_string(creamCup)).c_str() });
-    L->addFact({ "cup", ("obj" + std::to_string(sugarCup0)).c_str() });
-    L->addFact({ "cup", ("obj" + std::to_string(sugarCup1)).c_str() });
-    L->addFact({ "spoon", ("obj" + std::to_string(spoon)).c_str() });
-    L->addFact({ "hasCream", ("obj" + std::to_string(creamCup)).c_str() });
-    L->addFact({ "hasSugar", ("obj" + std::to_string(sugarCup0)).c_str() });
-    L->addFact({ "hasSugar", ("obj" + std::to_string(sugarCup1)).c_str() });
-    L->addTerminalRule(("(mixed obj" + std::to_string(cup0) + ")").c_str());
+    // Each cup starts with the ingredients that the scenario's contents bitmask lists.
+    for (size_t i = 0; i < n; i++) {
+        std::string obj = "obj" + std::to_string(i);
+        if (hopcxx_coffee_object_kind(&scenario, i) == 1) {
+            L->addFact({ "spoon", obj.c_str() });
+            continue;
+        }
+        L->addFact({ "cup", obj.c_str() });
+        uint8_t contents = hopcxx_coffee_object_contents(&scenario, i);
+        if (contents & 1) {
+            L->addFact({ "hasCoffee", obj.c_str() });
+        }
+        if (contents & 2) {
+            L->addFact({ "hasSugar", obj.c_str() });
+        }
+        if (contents & 4) {
+            L->addFact({ "hasCream", obj.c_str() });
+        }
+    }
+    L->addTerminalRule(("(mixed obj" + std::to_string(target) + ")").c_str());
     L->reset_state();
 
     folAstar
