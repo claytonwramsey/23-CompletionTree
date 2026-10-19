@@ -183,8 +183,8 @@ bool CoffeeDomain::drawKeyframe(const Context &ctx, const State &before, const A
     case CoffeeActionType::Stir: {
         auto nl = std::make_shared<std::vector<CupLogic>>(*before.cupLogic);
         CupLogic &c = (*nl)[act.target_index];
-        CHECK(c.coffee && c.sugar && c.cream, "stir precondition violated (cup not ready to mix)");
-        c = CupLogic {};
+        CHECK(c.coffee && c.sugar && c.cream && !c.mixed,
+            "stir precondition violated (cup not ready to mix)");
         c.mixed = true;
         out.after.cupLogic = nl;
         break;

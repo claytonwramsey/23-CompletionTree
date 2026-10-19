@@ -18,8 +18,9 @@ struct CoffeeAction {
                          // otherwise)
 };
 
-// Per-cup logical state, mirroring hop_problem::coffee::CupState -- either
-// Unmixed with some subset of {coffee, sugar, cream}, or Mixed.
+// Per-cup logical state, mirroring hop_problem::coffee::CupState.
+// A cup holds some subset of coffee, sugar, and cream.
+// A mixed cup holds all three.
 struct CupLogic {
     bool coffee = false, sugar = false, cream = false, mixed = false;
 };
