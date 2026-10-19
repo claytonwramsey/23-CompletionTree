@@ -16,6 +16,9 @@ HOP_BENCH_CXX_DIR ?= $(abspath ../../hopscotch/crates/hop-bench-cxx)
 HOP_BENCH_CXX_LIB ?= $(abspath ../../hopscotch/target/release)
 
 CXXFLAGS += -I$(HOP_BENCH_CXX_DIR)
+# Record each object's header dependencies in a .d file beside it, so that editing a header
+# rebuilds every object that includes it.
+CXXFLAGS += -MMD -MP
 LIBS += -L$(HOP_BENCH_CXX_LIB) -lhop_bench_cxx -Wl,-rpath,$(HOP_BENCH_CXX_LIB) -lpthread -ldl
 
 # One executable per bench_*.cpp driver (each has its own `main`), sharing the
@@ -38,6 +41,9 @@ OBJS = $(SRCS:%.cpp=%.o)
 # itself forever (each recursive `make MAIN=... OUTPUT=...` again runs
 # `all_bench` by default rather than building just that one driver).
 include $(BASE)/makeutils/generic.mk
+
+# Included after generic.mk so that its `default` stays the first target.
+-include $(SRCS:%.cpp=%.d)
 
 DRIVERS = bench_hopscotch:x_hopscotch.exe bench_stacking:x_stacking.exe bench_mobile:x_mobile.exe bench_coffee:x_coffee.exe bench_clr_shuffle:x_clr_shuffle.exe
 

@@ -147,3 +147,6 @@ srv_gen
 # no-root build dependencies and the robot models the upstream LGP problems load
 /.deps/
 /rai-robotModels/
+
+# header dependency files written by the src_hopscotch Makefile
+/src_hopscotch/*.d
