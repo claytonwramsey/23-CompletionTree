@@ -17,10 +17,13 @@ HopDiagStats &diagStats() {
 
 int MotionPlanState::step(const RobotVtable &rvArg, CConfig q_start, CConfig q_end,
     const Environment *env, float block_r, bool has_held, CPose held_rel_pose, float *out_buf,
-    size_t out_cap, size_t *out_len) {
+    size_t out_cap, size_t *out_len, int coffee_item_kind) {
     rv = &rvArg;
     if (!handle) {
-        handle = rv->motion_plan_start(q_start, q_end, env, block_r, has_held, held_rel_pose);
+        handle = has_held && coffee_item_kind >= 0
+            ? rv->motion_plan_start_coffee_item(q_start, q_end, env,
+                  static_cast<uint8_t>(coffee_item_kind), block_r, held_rel_pose)
+            : rv->motion_plan_start(q_start, q_end, env, block_r, has_held, held_rel_pose);
         if (!handle) {
             return -1;
         }

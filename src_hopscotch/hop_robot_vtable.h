@@ -18,9 +18,12 @@ struct RobotVtable {
     CPose (*fk)(CConfig);
     bool (*validate)(CConfig, const Environment *);
     bool (*validate_attached)(CConfig, const Environment *, float, CPose);
+    bool (*validate_attached_coffee_item)(CConfig, const Environment *, uint8_t, float, CPose);
     CPose (*sample_rel_pose)();
     CPose (*sample_table_pose)(CTable);
     void *(*motion_plan_start)(CConfig, CConfig, const Environment *, float, bool, CPose);
+    void *(*motion_plan_start_coffee_item)(
+        CConfig, CConfig, const Environment *, uint8_t, float, CPose);
     int (*motion_plan_resume)(void *, size_t, float *, size_t, size_t *);
     void (*motion_plan_free)(void *);
 };
@@ -31,6 +34,11 @@ namespace hop_vtable_detail {
         const Environment *env, float block_r, bool has_held, CPose held_rel_pose) {               \
         return hopcxx_##prefix##_motion_plan_start(                                                \
             q_start, q_end, env, block_r, has_held, held_rel_pose);                                \
+    }                                                                                              \
+    inline void *prefix##_motion_plan_start_coffee_item(CConfig q_start, CConfig q_end,            \
+        const Environment *env, uint8_t kind, float object_r, CPose held_rel_pose) {               \
+        return hopcxx_##prefix##_motion_plan_start_coffee_item(                                    \
+            q_start, q_end, env, kind, object_r, held_rel_pose);                                   \
     }                                                                                              \
     inline int prefix##_motion_plan_resume(                                                        \
         void *handle, size_t n_samples, float *out_buf, size_t out_cap, size_t *out_len) {         \
@@ -55,9 +63,11 @@ inline const RobotVtable &robot_vtable(RobotTag tag) {
         hopcxx_panda_fk,
         hopcxx_panda_validate,
         hopcxx_panda_validate_attached,
+        hopcxx_panda_validate_attached_coffee_item,
         hopcxx_panda_sample_rel_pose,
         hopcxx_panda_sample_table_pose,
         hop_vtable_detail::panda_motion_plan_start,
+        hop_vtable_detail::panda_motion_plan_start_coffee_item,
         hop_vtable_detail::panda_motion_plan_resume,
         hop_vtable_detail::panda_motion_plan_free,
     };
@@ -66,9 +76,11 @@ inline const RobotVtable &robot_vtable(RobotTag tag) {
         hopcxx_ur5_fk,
         hopcxx_ur5_validate,
         hopcxx_ur5_validate_attached,
+        hopcxx_ur5_validate_attached_coffee_item,
         hopcxx_ur5_sample_rel_pose,
         hopcxx_ur5_sample_table_pose,
         hop_vtable_detail::ur5_motion_plan_start,
+        hop_vtable_detail::ur5_motion_plan_start_coffee_item,
         hop_vtable_detail::ur5_motion_plan_resume,
         hop_vtable_detail::ur5_motion_plan_free,
     };
@@ -77,9 +89,11 @@ inline const RobotVtable &robot_vtable(RobotTag tag) {
         hopcxx_pr2_fk,
         hopcxx_pr2_validate,
         hopcxx_pr2_validate_attached,
+        hopcxx_pr2_validate_attached_coffee_item,
         hopcxx_pr2_sample_rel_pose,
         hopcxx_pr2_sample_table_pose,
         hop_vtable_detail::pr2_motion_plan_start,
+        hop_vtable_detail::pr2_motion_plan_start_coffee_item,
         hop_vtable_detail::pr2_motion_plan_resume,
         hop_vtable_detail::pr2_motion_plan_free,
     };
@@ -88,9 +102,11 @@ inline const RobotVtable &robot_vtable(RobotTag tag) {
         hopcxx_ur10e_fk,
         hopcxx_ur10e_validate,
         hopcxx_ur10e_validate_attached,
+        hopcxx_ur10e_validate_attached_coffee_item,
         hopcxx_ur10e_sample_rel_pose,
         hopcxx_ur10e_sample_table_pose,
         hop_vtable_detail::ur10e_motion_plan_start,
+        hop_vtable_detail::ur10e_motion_plan_start_coffee_item,
         hop_vtable_detail::ur10e_motion_plan_resume,
         hop_vtable_detail::ur10e_motion_plan_free,
     };

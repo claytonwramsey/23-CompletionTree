@@ -106,9 +106,11 @@ struct MotionPlanState {
     // (still searching -- caller should leave its ComputeNode `isComplete =
     // false` so rai::AStar re-queues it and calls compute() again later,
     // which will resume this same search rather than restarting it).
+    // A held object is a block of half-width `block_r`, or the coffee item of kind
+    // `coffee_item_kind` scaled by `block_r` when that kind is nonnegative.
     int step(const RobotVtable &rv, CConfig q_start, CConfig q_end, const Environment *env,
         float block_r, bool has_held, CPose held_rel_pose, float *out_buf, size_t out_cap,
-        size_t *out_len);
+        size_t *out_len, int coffee_item_kind = -1);
 
     void reset();
 

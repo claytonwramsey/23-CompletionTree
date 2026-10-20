@@ -7,17 +7,25 @@
 
 namespace hopct {
 
+// The world with every item except the held one, or every item when `heldIndex` is negative.
+// Each item is the convex decomposition of its mesh, as in hopscotch.
 static EnvPtr buildAttemptEnv(
-    const CoffeeScenario &scenario, const std::vector<CPose> &poses, size_t movingIndex) {
+    const CoffeeScenario &scenario, const std::vector<CPose> &poses, int64_t heldIndex) {
     EnvPtr env = wrapEnv(hopcxx_env_clone(hopcxx_coffee_env(&scenario)));
     float object_r = hopcxx_coffee_object_r(&scenario);
     for (size_t i = 0; i < poses.size(); i++) {
-        if (i == movingIndex) {
+        if (static_cast<int64_t>(i) == heldIndex) {
             continue;
         }
-        hopcxx_env_add_cuboid(env.get(), poses[i], object_r);
+        hopcxx_env_add_coffee_item(
+            env.get(), hopcxx_coffee_object_kind(&scenario, i), poses[i], object_r);
     }
     return env;
+}
+
+// The item that `act` holds, or -1 if it holds none.
+static int64_t heldBy(const CoffeeAction &act) {
+    return act.type == CoffeeActionType::Pick ? -1 : static_cast<int64_t>(act.item_index);
 }
 
 // Matches common/streams_coffee.py's `_zoff`/`_zrot` helpers.
@@ -61,7 +69,8 @@ bool CoffeeDomain::drawKeyframe(const Context &ctx, const State &before, const A
     if (k < HopDiagStats::MAX_ACTIONS) {
         diagStats().attempts[k]++;
     }
-    EnvPtr env = buildAttemptEnv(*ctx.scenario, *before.poses, act.item_index);
+    EnvPtr env = buildAttemptEnv(*ctx.scenario, *before.poses, heldBy(act));
+    uint8_t kind = hopcxx_coffee_object_kind(ctx.scenario, act.item_index);
     out.after = before;
     CPose eeTarget, heldRel = pose_identity();
     CPose placed {};
@@ -110,8 +119,9 @@ bool CoffeeDomain::drawKeyframe(const Context &ctx, const State &before, const A
     if (k < HopDiagStats::MAX_ACTIONS) {
         diagStats().ikOk[k]++;
     }
-    bool valid = hasHeld ? rv.validate_attached(out.after.q_arm, env.get(), object_r, heldRel)
-                         : rv.validate(out.after.q_arm, env.get());
+    bool valid = hasHeld
+        ? rv.validate_attached_coffee_item(out.after.q_arm, env.get(), kind, object_r, heldRel)
+        : rv.validate(out.after.q_arm, env.get());
     // The keyframe also starts the next action's motion, in the world this action leaves
     // behind, so it has to be valid there too.
     if (valid && next) {
@@ -119,12 +129,15 @@ bool CoffeeDomain::drawKeyframe(const Context &ctx, const State &before, const A
         if (act.type == CoffeeActionType::Place) {
             after[act.item_index] = placed;
         }
-        EnvPtr envAfter = buildAttemptEnv(*ctx.scenario, after, next->item_index);
-        if (act.type == CoffeeActionType::Place) {
+        // A place leaves the hand empty, and every other action keeps holding the same item.
+        int64_t heldAfter
+            = act.type == CoffeeActionType::Place ? -1 : static_cast<int64_t>(act.item_index);
+        EnvPtr envAfter = buildAttemptEnv(*ctx.scenario, after, heldAfter);
+        if (heldAfter < 0) {
             valid = rv.validate(out.after.q_arm, envAfter.get());
         } else {
-            valid = rv.validate_attached(
-                out.after.q_arm, envAfter.get(), object_r, pose_inverse(out.after.grasp_offset));
+            valid = rv.validate_attached_coffee_item(out.after.q_arm, envAfter.get(), kind,
+                object_r, pose_inverse(out.after.grasp_offset));
         }
     }
     if (!valid) {
@@ -195,9 +208,10 @@ bool CoffeeDomain::drawKeyframe(const Context &ctx, const State &before, const A
 
 int CoffeeDomain::motionStep(const Context &ctx, const State &before, const Action &act,
     const Keyframe &kf, size_t k, MotionState &motion, float *buf, size_t cap, size_t *len) {
-    EnvPtr env = buildAttemptEnv(*ctx.scenario, *before.poses, act.item_index);
+    EnvPtr env = buildAttemptEnv(*ctx.scenario, *before.poses, heldBy(act));
     int r = motion.step(robot_vtable(ctx.robot), before.q_arm, kf.after.q_arm, env.get(),
-        hopcxx_coffee_object_r(ctx.scenario), kf.hasHeld, kf.heldRel, buf, cap, len);
+        hopcxx_coffee_object_r(ctx.scenario), kf.hasHeld, kf.heldRel, buf, cap, len,
+        hopcxx_coffee_object_kind(ctx.scenario, act.item_index));
     if (r > 0 && k < HopDiagStats::MAX_ACTIONS) {
         diagStats().motionOk[k]++;
     }
