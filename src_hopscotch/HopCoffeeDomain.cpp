@@ -76,7 +76,7 @@ bool CoffeeDomain::drawKeyframe(const Context &ctx, const State &before, const A
     CPose placed {};
     bool hasHeld = act.type != CoffeeActionType::Pick;
     if (act.type == CoffeeActionType::Pick) {
-        CPose g = rv.sample_rel_pose();
+        CPose g = hopcxx_coffee_sample_grasp(kind, object_r);
         eeTarget = pose_mul((*before.poses)[act.item_index], g);
         out.after.grasp_offset = g;
     } else {
