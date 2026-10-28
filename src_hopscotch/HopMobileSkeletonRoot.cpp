@@ -1,4 +1,5 @@
 #include "HopBenchDriver.h"
+#include "HopGoalCountFolState.h"
 #include "HopMobileSkeletonRoot.h"
 #include <Core/graph.h>
 #include <cmath>
@@ -101,16 +102,27 @@ HopMobileSkeletonRoot::HopMobileSkeletonRoot(const MobileScenario &scenario)
             ("surf" + std::to_string(bestSurf)).c_str() });
     }
 
-    // goal: every object on goal_surface.
+    // goal: every goal block on goal_surface.
     std::string literals;
-    for (size_t i = 0; i < n; i++) {
+    size_t numGoal = hopcxx_mobile_num_goal_blocks(&scenario);
+    for (size_t k = 0; k < numGoal; k++) {
+        uint64_t goalId = hopcxx_mobile_goal_block(&scenario, k);
+        size_t i = n;
+        for (size_t j = 0; j < n; j++) {
+            if (hopcxx_mobile_object_id(&scenario, j) == goalId) {
+                i = j;
+                break;
+            }
+        }
+        CHECK(i < n, "goal block id not found among scenario objects");
         literals += "(on obj" + std::to_string(i) + " surf" + std::to_string(goalSurface) + ") ";
     }
     L->addTerminalRule(literals.c_str());
     L->reset_state();
 
-    folAstar
-        = std::make_shared<rai::AStar>(std::make_shared<rai::FOL_World_State>(*L, nullptr, false));
+    // A* counts the goal literals that don't hold, as hopscotch's task planner does.
+    folAstar = std::make_shared<rai::AStar>(
+        std::make_shared<GoalCountFolState>(*L, nullptr, false, terminalGoal(*L)));
     folAstar->verbose = 0;
 
 }
